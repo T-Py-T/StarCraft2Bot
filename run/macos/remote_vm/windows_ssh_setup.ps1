@@ -1,8 +1,8 @@
 # Windows SSH Setup Script for StarCraft2Bot Remote Development
 # Run this script in PowerShell as Administrator in your Windows VM
 
-Write-Host "🖥️  Setting up SSH Server in Windows VM" -ForegroundColor Cyan
-Write-Host "=" * 50
+Write-Host "Setting up SSH Server in Windows VM" -ForegroundColor Cyan
+Write-Host "==================================================="
 
 # Check if running as administrator
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -77,8 +77,8 @@ icacls $sshDir /grant:r "$env:USERNAME:(F)"
 
 # Display network information
 Write-Host ""
-Write-Host "🌐 Network Information:" -ForegroundColor Cyan
-Write-Host "=" * 30
+Write-Host "Network Information:" -ForegroundColor Cyan
+Write-Host "==============================="
 
 $networkInfo = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" }
 
@@ -90,8 +90,8 @@ foreach ($ip in $networkInfo) {
 }
 
 # Display connection information
-Write-Host "🔗 SSH Connection Information:" -ForegroundColor Cyan
-Write-Host "=" * 30
+Write-Host "SSH Connection Information:" -ForegroundColor Cyan
+Write-Host "==============================="
 Write-Host "Username: $env:USERNAME" -ForegroundColor Green
 Write-Host "SSH Port: 22" -ForegroundColor Green
 Write-Host ""
@@ -100,7 +100,7 @@ Write-Host "ssh $env:USERNAME@YOUR_VM_IP_ADDRESS" -ForegroundColor White
 
 # Install Chocolatey if not present
 Write-Host ""
-Write-Host "🍫 Checking for Chocolatey..." -ForegroundColor Cyan
+Write-Host "Checking for Chocolatey..." -ForegroundColor Cyan
 
 if (Get-Command choco -ErrorAction SilentlyContinue) {
     Write-Host "✅ Chocolatey already installed" -ForegroundColor Green
@@ -114,7 +114,7 @@ if (Get-Command choco -ErrorAction SilentlyContinue) {
 
 # Install Python and Git
 Write-Host ""
-Write-Host "🐍 Installing Python and Git..." -ForegroundColor Cyan
+Write-Host "Installing Python and Git..." -ForegroundColor Cyan
 
 if (Get-Command python -ErrorAction SilentlyContinue) {
     Write-Host "✅ Python already installed" -ForegroundColor Green
@@ -135,7 +135,7 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 
 # Install uv
 Write-Host ""
-Write-Host "📦 Installing uv..." -ForegroundColor Cyan
+Write-Host "Installing uv..." -ForegroundColor Cyan
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {
     Write-Host "✅ uv already installed" -ForegroundColor Green
@@ -145,13 +145,13 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
 }
 
 Write-Host ""
-Write-Host "🎉 Windows VM SSH setup complete!" -ForegroundColor Green
+Write-Host "Windows VM SSH setup complete!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📝 Next steps:" -ForegroundColor Cyan
+Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "1. Note your VM IP address from the network information above"
 Write-Host "2. Run the setup script on your macOS machine"
 Write-Host "3. Clone the StarCraft2Bot repository in this VM"
 Write-Host "4. Configure StarCraft II path in src/config.py"
 Write-Host ""
-Write-Host "🔗 Test SSH connection from macOS:" -ForegroundColor Yellow
+Write-Host "Test SSH connection from macOS:" -ForegroundColor Yellow
 Write-Host "ssh $env:USERNAME@YOUR_VM_IP_ADDRESS" -ForegroundColor White
