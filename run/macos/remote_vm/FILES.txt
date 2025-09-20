@@ -1,0 +1,26 @@
+StarCraft2Bot Remote VM Setup Files
+=====================================
+
+This folder contains all files needed for Windows VM setup.
+
+📁 Available Files:
+├── README.md                 - Complete setup guide and documentation
+├── windows_ssh_setup.ps1     - Main SSH setup script (run as Administrator)
+├── setup_bot_in_vm.ps1       - Bot configuration script (run after cloning)
+├── quick_setup.bat           - Simple double-click setup option
+├── test_connection.ps1       - Connection and functionality testing
+└── FILES.txt                 - This file
+
+🚀 Quick Start:
+1. Download these files to your Windows VM
+2. Right-click PowerShell → "Run as Administrator"
+3. Run: .\windows_ssh_setup.ps1
+4. Note the IP address displayed
+5. Run setup script on macOS: make setup-remote-dev
+6. Clone repository in VM: git clone <your-repo>
+7. Run: .\setup_bot_in_vm.ps1
+
+📖 For detailed instructions, see README.md
+
+🔗 Repository: https://github.com/yourusername/StarCraft2Bot
+📂 Location: run/macos/remote_vm/
