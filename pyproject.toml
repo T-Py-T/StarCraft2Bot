@@ -9,10 +9,13 @@ dependencies = [
   "sc2",
   "opencv-python",
   "numpy",
-  "gym",
+  "gymnasium",
   "stable-baselines3",
   "wandb",
-  "torch"
+  "torch",
+  "tensorboard",
+  "shimmy>=2.0",
+  "protobuf>=3.20.0,<3.21.0"
 ]
 
 [build-system]
