@@ -8,7 +8,7 @@ IS_MACOS = platform.system() == "Darwin"
 
 # StarCraft II executable paths
 # Update these paths to match your StarCraft II installation
-STARCRAFT_II_PATH_WINDOWS = r"E:\XboxGames\StarCraft II\StarCraft II.exe"
+STARCRAFT_II_PATH_WINDOWS = r"C:\Program Files (x86)\StarCraft II\StarCraft II.exe"
 STARCRAFT_II_PATH_LINUX = "/mnt/e/XboxGames/StarCraft II/StarCraft II.exe"
 
 # Default Linux path (for users who installed StarCraft II natively on Linux)
