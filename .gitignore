@@ -1,7 +1,6 @@
 #Ignore in progress items
 **/todo/*
 
-
 #IDE Ignore section
 .vscode/
 .cursor/
@@ -79,3 +78,12 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# StarCraft II maps (downloaded files)
+Maps/
+
+# Weights and biases
+wandb/
+
+# Tensorflow logs
+logs/

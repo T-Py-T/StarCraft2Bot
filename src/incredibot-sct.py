@@ -1,3 +1,11 @@
+# Import config first to set environment variables
+from config import SAVE_REPLAY, REALTIME, WANDB_MODE, IS_WINDOWS, IS_LINUX
+import os
+SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+PKL_PATH = os.path.join(SRC_DIR, 'state_rwd_action.pkl')
+RESULTS_PATH = os.path.join(SRC_DIR, 'results.txt')
+os.environ["WANDB_MODE"] = WANDB_MODE
+
 from sc2.bot_ai import BotAI  # parent class we inherit from
 from sc2.data import Difficulty, Race  # difficulty for bots, race for the 1 of 3 races
 from sc2.main import run_game  # function that facilitates actually running the agents in games
@@ -12,36 +20,80 @@ import sys
 import pickle
 import time
 
-
-SAVE_REPLAY = True
-
 total_steps = 10000 
 steps_for_pun = np.linspace(0, 1, total_steps)
 step_punishment = ((np.exp(steps_for_pun**3)/10) - 0.1)*10
 
+VERBOSE = True  # Set to True for detailed action/reward logging
+ACTION_NAMES = {
+    0: "Expand/Mine",
+    1: "Build Stargate",
+    2: "Build Voidray",
+    3: "Scout",
+    4: "Attack",
+    5: "Flee"
+}
 
 
 class IncrediBot(BotAI): # inhereits from BotAI (part of BurnySC2)
+    def __init__(self):
+        super().__init__()
+        self.prev_stargate_count = 0
+        self.episode_reward = 0
+
+    async def on_start(self):
+        # Initialize/reset state file at the start of the game
+        map = np.zeros((224, 224, 3), dtype=np.uint8)
+        data = {"state": map, "reward": 0, "action": None, "done": False}
+        with open(PKL_PATH, 'wb') as f:
+            pickle.dump(data, f)
+        self.prev_stargate_count = 0
+        self.episode_reward = 0
+
+    def on_end(self, result):
+        # Write result to file and mark state as done
+        if str(result) == "Result.Victory":
+            rwd = 1000  # Increased reward for victory
+        else:
+            rwd = -1000 # Increased penalty for defeat
+        with open(RESULTS_PATH, "a") as f:
+            f.write(f"{result}\n")
+        map = np.zeros((224, 224, 3), dtype=np.uint8)
+        data = {"state": map, "reward": rwd, "action": None, "done": True}
+        with open(PKL_PATH, 'wb') as f:
+            pickle.dump(data, f)
+        print(f"[Reward] Game ended with result {result}, reward written: {rwd}")
+        # Cleanup (cv2.destroyAllWindows, time.sleep, sys.exit) should be done after run_game returns if needed.
+
     async def on_step(self, iteration: int): # on_step is a method that is called every step of the game.
+        # Guard: skip step if mineral_field is not available yet
+        if not hasattr(self, "mineral_field") or self.mineral_field is None:
+            return
+        
         no_action = True
         while no_action:
             try:
-                with open('state_rwd_action.pkl', 'rb') as f:
+                with open(PKL_PATH, 'rb') as f:
                     state_rwd_action = pickle.load(f)
 
                     if state_rwd_action['action'] is None:
-                        #print("No action yet")
-                        no_action = True
-                    else:
-                        #print("Action found")
+                        # Randomly select an action for exploration (weighted)
+                        # Weights: [expand, build stargate, build voidray, scout, attack, flee]
+                        action_weights = [0.2, 0.2, 0.2, 0.15, 0.15, 0.1]
+                        state_rwd_action['action'] = random.choices([0, 1, 2, 3, 4, 5], weights=action_weights)[0]
+                        print(f"[Exploration] Randomly selected action: {state_rwd_action['action']}")
                         no_action = False
-            except:
+                    else:
+                        no_action = False
+            except Exception as e:
+                print(f"[Error] Could not read action from PKL: {e}")
                 pass
-
 
         await self.distribute_workers() # put idle workers back to work
 
         action = state_rwd_action['action']
+        action_name = ACTION_NAMES.get(action, 'Unknown')
+        reward_for_this_step = 0
         '''
         0: expand (ie: move to next spot, or build to 16 (minerals)+3 assemblers+3)
         1: build stargate (or up to one) (evenly)
@@ -101,20 +153,38 @@ class IncrediBot(BotAI): # inhereits from BotAI (part of BurnySC2)
                         if self.can_afford(UnitTypeId.GATEWAY) and self.already_pending(UnitTypeId.GATEWAY) == 0:
                             # build gateway
                             await self.build(UnitTypeId.GATEWAY, near=nexus)
-                        
                     # if the is not a cybernetics core close:
                     if not self.structures(UnitTypeId.CYBERNETICSCORE).closer_than(10, nexus).exists:
                         # if we can afford it:
                         if self.can_afford(UnitTypeId.CYBERNETICSCORE) and self.already_pending(UnitTypeId.CYBERNETICSCORE) == 0:
                             # build cybernetics core
                             await self.build(UnitTypeId.CYBERNETICSCORE, near=nexus)
-
                     # if there is not a stargate close:
                     if not self.structures(UnitTypeId.STARGATE).closer_than(10, nexus).exists:
                         # if we can afford it:
                         if self.can_afford(UnitTypeId.STARGATE) and self.already_pending(UnitTypeId.STARGATE) == 0:
                             # build stargate
                             await self.build(UnitTypeId.STARGATE, near=nexus)
+                # Stargate reward logic: reward agent for each new stargate built
+                current_stargate_count = self.structures(UnitTypeId.STARGATE).amount
+                if current_stargate_count > self.prev_stargate_count:
+                    reward = 100 * (current_stargate_count - self.prev_stargate_count)  # Increased reward
+                    reward_for_this_step += reward
+                    print(f"[Reward] Built {current_stargate_count - self.prev_stargate_count} new stargate(s): +{reward} reward (total: {self.episode_reward})")
+                    # Update the state file with the new reward
+                    try:
+                        with open(PKL_PATH, 'rb') as f:
+                            data = pickle.load(f)
+                        data['reward'] += reward
+                        with open(PKL_PATH, 'wb') as f:
+                            pickle.dump(data, f)
+                        print(f"[Reward] Stargate reward propagated to PKL: {reward}")
+                    except Exception as e:
+                        print(f"[Reward] Error updating reward in state file: {e}")
+                    self.prev_stargate_count = current_stargate_count
+                else:
+                    self.prev_stargate_count = current_stargate_count
+                # End stargate reward logic
 
             except Exception as e:
                 print(e)
@@ -190,6 +260,25 @@ class IncrediBot(BotAI): # inhereits from BotAI (part of BurnySC2)
             if self.units(UnitTypeId.VOIDRAY).amount > 0:
                 for vr in self.units(UnitTypeId.VOIDRAY):
                     vr.attack(self.start_location)
+
+        # After main action, opportunistically build fighting units/buildings if resources allow (weighted)
+        # Example: 70% chance to try to build a voidray if possible
+        if random.random() < 0.7:
+            if self.can_afford(UnitTypeId.VOIDRAY) and self.structures(UnitTypeId.STARGATE).ready.idle.exists:
+                for sg in self.structures(UnitTypeId.STARGATE).ready.idle:
+                    sg.train(UnitTypeId.VOIDRAY)
+                    print("[Opportunistic] Trained a voidray (opportunistic)")
+                    break
+        # 40% chance to try to build a stargate if we have a cybernetics core and enough resources
+        if random.random() < 0.4:
+            if self.structures(UnitTypeId.CYBERNETICSCORE).ready.exists and self.can_afford(UnitTypeId.STARGATE) and self.already_pending(UnitTypeId.STARGATE) == 0:
+                await self.build(UnitTypeId.STARGATE, near=random.choice(self.townhalls))
+                print("[Opportunistic] Built a stargate (opportunistic)")
+        # 30% chance to try to build a gateway if we have a nexus and enough resources
+        if random.random() < 0.3:
+            if self.townhalls.exists and self.can_afford(UnitTypeId.GATEWAY) and self.already_pending(UnitTypeId.GATEWAY) == 0:
+                await self.build(UnitTypeId.GATEWAY, near=random.choice(self.townhalls))
+                print("[Opportunistic] Built a gateway (opportunistic)")
 
 
         map = np.zeros((self.game_info.map_size[0], self.game_info.map_size[1], 3), dtype=np.uint8)
@@ -317,36 +406,95 @@ class IncrediBot(BotAI): # inhereits from BotAI (part of BurnySC2)
         # write the file: 
         data = {"state": map, "reward": reward, "action": None, "done": False}  # empty action waiting for the next one!
 
-        with open('state_rwd_action.pkl', 'wb') as f:
+        with open(PKL_PATH, 'wb') as f:
             pickle.dump(data, f)
+
+        reward_given = False
+        # Voidray reward: reward for each new voidray trained
+        current_voidray_count = self.units(UnitTypeId.VOIDRAY).amount
+        if not hasattr(self, 'prev_voidray_count'):
+            self.prev_voidray_count = 0
+        if current_voidray_count > self.prev_voidray_count:
+            reward = 80 * (current_voidray_count - self.prev_voidray_count)
+            self.episode_reward += reward
+            print(f"[Reward] Trained {current_voidray_count - self.prev_voidray_count} new voidray(s): +{reward} reward (total: {self.episode_reward})")
+            try:
+                with open(PKL_PATH, 'rb') as f:
+                    data = pickle.load(f)
+                data['reward'] += reward
+                with open(PKL_PATH, 'wb') as f:
+                    pickle.dump(data, f)
+                print(f"[Reward] Voidray reward propagated to PKL: {reward}")
+            except Exception as e:
+                print(f"[Reward] Error updating voidray reward in state file: {e}")
+            reward_given = True
+        self.prev_voidray_count = current_voidray_count
+
+        # Attack command reward: reward for issuing attack commands
+        if not hasattr(self, 'prev_attack_issued'):
+            self.prev_attack_issued = 0
+        if action == 4 and (iteration != self.prev_attack_issued):
+            reward = 50
+            self.episode_reward += reward
+            print(f"[Reward] Issued attack command: +{reward} reward (total: {self.episode_reward})")
+            try:
+                with open(PKL_PATH, 'rb') as f:
+                    data = pickle.load(f)
+                data['reward'] += reward
+                with open(PKL_PATH, 'wb') as f:
+                    pickle.dump(data, f)
+                print(f"[Reward] Attack command reward propagated to PKL: {reward}")
+            except Exception as e:
+                print(f"[Reward] Error updating attack reward in state file: {e}")
+            self.prev_attack_issued = iteration
+            reward_given = True
+
+        # Scout reward: reward for sending a scout
+        if not hasattr(self, 'prev_scout_sent'):
+            self.prev_scout_sent = 0
+        if action == 3 and (iteration != self.prev_scout_sent):
+            reward = 30
+            self.episode_reward += reward
+            print(f"[Reward] Sent scout: +{reward} reward (total: {self.episode_reward})")
+            try:
+                with open(PKL_PATH, 'rb') as f:
+                    data = pickle.load(f)
+                data['reward'] += reward
+                with open(PKL_PATH, 'wb') as f:
+                    pickle.dump(data, f)
+                print(f"[Reward] Scout reward propagated to PKL: {reward}")
+            except Exception as e:
+                print(f"[Reward] Error updating scout reward in state file: {e}")
+            self.prev_scout_sent = iteration
+            reward_given = True
+
+        # Penalty for inaction/mining: if only mining for too long, penalize
+        if not hasattr(self, 'last_non_mining_action'):
+            self.last_non_mining_action = iteration
+        if action not in [0]:  # 0 is expand/mine
+            self.last_non_mining_action = iteration
+        if (iteration - self.last_non_mining_action) > 300:
+            penalty = -40
+            self.episode_reward += penalty
+            print(f"[Penalty] Inaction/mining too long: {penalty} penalty (total: {self.episode_reward})")
+            try:
+                with open(PKL_PATH, 'rb') as f:
+                    data = pickle.load(f)
+                data['reward'] += penalty
+                with open(PKL_PATH, 'wb') as f:
+                    pickle.dump(data, f)
+                print(f"[Penalty] Inaction penalty propagated to PKL: {penalty}")
+            except Exception as e:
+                print(f"[Penalty] Error updating inaction penalty in state file: {e}")
+            self.last_non_mining_action = iteration
+            reward_given = True
 
         
 
 
-result = run_game(  # run_game is a function that runs the game.
-    maps.get("2000AtmospheresAIE"), # the map we are playing on
-    [Bot(Race.Protoss, IncrediBot()), # runs our coded bot, protoss race, and we pass our bot object 
-     Computer(Race.Zerg, Difficulty.Hard)], # runs a pre-made computer agent, zerg race, with a hard difficulty.
-    realtime=False, # When set to True, the agent is limited in how long each step can take to process.
+run_game(
+    # Always include a Computer opponent for RL training; otherwise, the game ends instantly and the RL loop hangs.
+    maps.get("AbyssalReefLE"),
+    [Bot(Race.Protoss, IncrediBot()), Computer(Race.Zerg, Difficulty.Easy)],
+    realtime=REALTIME,
 )
-
-
-if str(result) == "Result.Victory":
-    rwd = 500
-else:
-    rwd = -500
-
-with open("results.txt","a") as f:
-    f.write(f"{result}\n")
-
-
-map = np.zeros((224, 224, 3), dtype=np.uint8)
-observation = map
-data = {"state": map, "reward": rwd, "action": None, "done": True}  # empty action waiting for the next one!
-with open('state_rwd_action.pkl', 'wb') as f:
-    pickle.dump(data, f)
-
-cv2.destroyAllWindows()
-cv2.waitKey(1)
-time.sleep(3)
-sys.exit()
