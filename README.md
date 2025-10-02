@@ -1,364 +1,181 @@
 # StarCraft2Bot
 
-A modern, modular StarCraft II bot and reinforcement learning (RL) training environment.
+I built this StarCraft II bot to explore deep reinforcement learning in complex real-time strategy environments. The bot uses PPO to learn Protoss strategies, focusing on Void Ray air superiority tactics. It's a custom RL environment that processes visual game state and learns strategic decision-making through trial and error.
 
-## Features
+## What I Built
 
-- Modular bot code for StarCraft II using [BurnySC2](https://github.com/BurnySc2/python-sc2)
-- RL environment compatible with [OpenAI Gym](https://www.gymlibrary.dev/)
-- PPO training and evaluation with [Stable Baselines3](https://stable-baselines3.readthedocs.io/)
-- Experiment tracking with [Weights & Biases (wandb)](https://wandb.ai/)
-- Fast, reproducible dependency management with [uv](https://github.com/astral-sh/uv)
-- Cross-platform support: Windows, Linux, and macOS
+- **PPO Training**: Using Stable Baselines3 with MLP policies to learn optimal actions
+- **Custom RL Environment**: Gymnasium wrapper around StarCraft II with 224x224x3 visual observations
+- **Computer Vision Pipeline**: OpenCV extracts game state from screen captures
+- **Experiment Tracking**: Wandb logs training metrics and hyperparameter sweeps
+- **Protoss Strategy**: Bot learns Gateway → Cybernetics Core → Stargate → Void Ray build orders
+
+## How It Works
+
+### RL Environment
+- **State**: 224x224x3 RGB screenshots from the game
+- **Actions**: 6 discrete choices (Expand/Mine, Build Stargate, Build Void Ray, Scout, Attack, Flee)
+- **Rewards**: I designed a multi-objective system that rewards economic growth, military production, and tactical execution
+- **Training**: PPO learns through trial and error, with hyperparameters tracked in Wandb
+
+### Bot Strategy
+- **Protoss Focus**: Specialized in Void Ray air superiority tactics
+- **Economic AI**: Automatically manages worker distribution and resource optimization
+- **Military AI**: Dynamic unit production, scouting, and combat micro-management
+- **Build Orders**: Learns optimal progression from Gateway → Cybernetics Core → Stargate → Void Ray
+
+### Tech Stack
+- **ML**: PyTorch, Stable Baselines3, Gymnasium
+- **Game API**: BurnySC2 (python-sc2) for StarCraft II integration
+- **Vision**: OpenCV for real-time game state extraction
+- **Tracking**: Wandb for experiment logging and hyperparameter sweeps
+- **Dev Tools**: uv for dependency management, cross-platform support
 
 ## Requirements
 
 - Python 3.9–3.12
-- [uv](https://github.com/astral-sh/uv) (for dependency management)
 - StarCraft II installed (see platform-specific setup below)
+- [uv](https://github.com/astral-sh/uv) for dependency management
 
-## Installation
+## Quick Start
 
-1. **Clone the repository:**
+1. **Clone and setup:**
    ```sh
-   git clone https://github.com/yourusername/StarCraft2Bot.git
+   git clone https://github.com/T-Py-T/StarCraft2Bot.git
    cd StarCraft2Bot
-   ```
-
-2. **Install [uv](https://github.com/astral-sh/uv):**
-   ```sh
    pip install uv
-   ```
-
-3. **Install dependencies:**
-   ```sh
    uv sync
    ```
 
-## Platform-Specific Setup
-
-The bot automatically detects your operating system and configures itself accordingly. Choose your platform below:
-
-### 🪟 Windows (Recommended)
-
-**Best for:** Native StarCraft II installation, best performance
-
-**Setup:**
-1. Install StarCraft II from Battle.net or Xbox Game Pass
-2. Update `STARCRAFT_II_PATH_WINDOWS` in `src/config.py` with your installation path
-3. Run the Windows setup script:
-   ```powershell
-   cd run/windows
-   .\setup_maps.ps1
+2. **Train the AI model:**
+   ```sh
+   make train
    ```
 
-**Quick Start:**
+3. **Test trained model:**
+   ```sh
+   make test-model
+   ```
+
+## Platform Setup
+
+### Windows (Recommended)
 ```powershell
-# Navigate to Windows folder
+# Install StarCraft II from Battle.net
+# Update STARCRAFT_II_PATH_WINDOWS in src/config.py
 cd run/windows
-
-# Setup maps
 .\setup_maps.ps1
-
-# Create a simple test map
-uv run create_simple_map.py
-
-# Run training (from project root)
-cd ../..
-uv run src/trainppo.py
 ```
 
-**See:** [run/windows/README.md](run/windows/README.md) for detailed Windows instructions.
-
-### 🐧 Linux / WSL
-
-**Best for:** Development, server deployment
-
-**Setup:**
-1. Install StarCraft II (native Linux or through WSL)
-2. Update `STARCRAFT_II_PATH_LINUX` in `src/config.py` with your installation path
-3. Run the Linux setup script:
-   ```bash
-   cd run/linux
-   python3 download_maps.py
-   ```
-
-**Quick Start:**
+### Linux/WSL
 ```bash
-# Setup maps
+# Install StarCraft II
+# Update STARCRAFT_II_PATH_LINUX in src/config.py
 cd run/linux
 python3 download_maps.py
-
-# Run training
-cd ../..
-uv run src/trainppo.py
 ```
 
-**See:** [run/linux/README.md](run/linux/README.md) for detailed Linux instructions.
-
-### 🍎 macOS
-
-**Best for:** Development with Parallels Desktop (recommended)
-
-**Important:** StarCraft II is not natively available on macOS. Use Parallels Desktop for the best experience.
-
-**Setup Options:**
-
-**Option 1: Parallels Desktop (Recommended)**
-- Install Parallels Desktop
-- Create a Windows VM
-- Install StarCraft II in the VM
-- Run the bot from within the VM
-- See [run/macos/PARALLELS_SETUP.md](run/macos/PARALLELS_SETUP.md) for detailed instructions
-
-**Option 2: CrossOver (Limited Compatibility)**
-- Download from [CodeWeavers](https://www.codeweavers.com/crossover)
-- Install StarCraft II through CrossOver
-- **Note:** CrossOver has limited compatibility with StarCraft II
-- See [run/macos/README.md](run/macos/README.md) for detailed instructions
-
-**Quick Start (Parallels):**
+### macOS
 ```bash
-# Setup maps
+# Use Parallels Desktop for best compatibility
+# See run/macos/PARALLELS_SETUP.md for detailed instructions
 make setup-macos
-
-# Follow Parallels setup guide
-open run/macos/PARALLELS_SETUP.md
-
-# Set up remote development (develop on Mac, run on VM)
-make setup-remote-dev
-
-# Test bot in Windows VM
-make test-remote
-
-# Run training from within Windows VM
-make train
 ```
 
-**See:** [run/macos/README.md](run/macos/README.md) for detailed macOS instructions.
+## Training & Evaluation
 
-## Universal Usage (All Platforms)
-
-Once you've completed the platform-specific setup above, the following commands work the same across all platforms:
-
-### Quick Start with Makefile
-
-The easiest way to get started is using the provided Makefile:
-
+### ML Training Pipeline
 ```bash
-# Install dependencies and setup maps
-make quick-start
-
-# Check your environment setup
-make check-env
-
-# Start training
+# Start PPO training with experiment tracking
 make train
 
-# Test the bot
-make test
-```
-
-### Available Makefile Commands
-
-```bash
-# Setup Commands
-make install          # Install dependencies with uv
-make setup-maps       # Setup maps for current platform
-make setup-windows    # Setup for Windows
-make setup-linux      # Setup for Linux
-make setup-macos      # Setup for macOS
-
-# Training Commands
-make train            # Run basic PPO training
-make train-ppo        # Run PPO training (explicit)
-make train-mlpp       # Run MLPP training
-
-# Testing Commands
-make test             # Run all tests
-make test-bot         # Test the bot directly
-make test-model       # Test a trained model
-
-# Utility Commands
-make clean            # Clean temporary files
-make clean-models     # Clean trained models
-make clean-logs       # Clean log files
-make clean-wandb      # Clean wandb files
-make clean-all        # Clean everything
-make build            # Build the package
-make check-env        # Check environment setup
-make status           # Show project status
-```
-
-### Manual Commands (Alternative)
-
-If you prefer not to use the Makefile:
-
-```bash
-# Basic training
+# Train with custom hyperparameters
 uv run src/trainppo.py
 
-# Training with custom parameters
+# Load and continue training existing model
 uv run src/load-train-mlpp.py
+```
 
-# Test a trained model
+### Model Testing & Evaluation
+```bash
+# Test trained model against AI opponents
+make test-model
+
+# Direct bot testing
+make test-bot
+
+# Manual model evaluation
 uv run src/test_model.py
-
-# Test the bot directly
-uv run src/test_bot.py
 ```
 
-### Configuration
+### Experiment Management
+```bash
+# Monitor training with Wandb
+# Training metrics automatically logged to: https://wandb.ai/tnt850910/SC2RLv6
 
-The bot automatically detects your operating system and configures itself accordingly:
-
-1. **StarCraft II Path (OS-specific):**
-   - **Windows:** Set `STARCRAFT_II_PATH_WINDOWS` in `src/config.py`
-   - **Linux/WSL:** Set `STARCRAFT_II_PATH_LINUX` in `src/config.py`
-   - **macOS:** Set appropriate macOS path in `src/config.py`
-
-2. **Wandb Settings:**
-   - **Offline mode:** By default, wandb runs in offline mode (no prompts)
-   - **Silent mode:** Wandb prompts are disabled by default
-   - To enable online mode, change `WANDB_MODE = "online"` in `src/config.py`
-
-3. **Path Verification:**
-   The bot automatically checks if the StarCraft II executable exists and warns you if it's not found.
-
-## Map Files Setup
-
-All StarCraft II map files (`.SC2Map`) should be placed directly in the `Maps` folder at the root of the project. There is no need for subfolders by season or type. The bot and the python-sc2 library will find maps by filename in this directory.
-
-**Recommended structure:**
-```
-StarCraft2Bot/
-  Maps/
-    AbyssalReefLE.SC2Map
-    AcropolisLE.SC2Map
-    AscensiontoAiurLE.SC2Map
-    AutomatonLE.SC2Map
-    BattleontheBoardwalkLE.SC2Map
-    BlackpinkLE.SC2Map
-    BlueshiftLE.SC2Map
-    CatalystLE.SC2Map
-    CeruleanFallLE.SC2Map
-    DiscoBloodbathLE.SC2Map
-    EphemeronLE.SC2Map
-    KairosJunctionLE.SC2Map
-    NeonVioletSquareLE.SC2Map
-    OdysseyLE.SC2Map
-    ParaSiteLE.SC2Map
-    PortAleksanderLE.SC2Map
-    StasisLE.SC2Map
-    ThunderbirdLE.SC2Map
-    TritonLE.SC2Map
-    WintersGateLE.SC2Map
-    WorldofSleepersLE.SC2Map
-    # Melee maps (for custom or empty scenarios):
-    Empty128.SC2Map
-    Flat32.SC2Map
-    Flat48.SC2Map
-    Flat64.SC2Map
-    Flat96.SC2Map
-    Flat128.SC2Map
-    Simple64.SC2Map
-    Simple96.SC2Map
-    Simple128.SC2Map
+# Clean up training artifacts
+make clean-models
+make clean-logs
 ```
 
-- **Melee maps:** `Simple64`, `Simple96`, `Simple128`, `Empty128`, `Flat32`, `Flat48`, `Flat64`, `Flat96`, `Flat128` are for custom or empty scenarios.
-- **PvP/PvAI maps:** All other `.SC2Map` files are standard competitive or AI ladder maps.
+## Configuration
 
-**Note:**
-- If you add more maps, ensure their filenames do not conflict. If two maps have the same name, one will overwrite the other.
-- You do not need to maintain the original Blizzard folder structure for maps; a flat folder is sufficient for python-sc2.
+### Key Settings (`src/config.py`)
+- **StarCraft II Path**: Set platform-specific paths for game installation
+- **Wandb Mode**: Configure experiment tracking (offline/online)
+- **Training Parameters**: Adjust PPO hyperparameters and training duration
+- **Reward Engineering**: Modify reward weights for different strategic objectives
 
-## Official Map and Replay Packs
+## Game Maps
 
-For the most up-to-date and complete StarCraft II map packs (including ladder and melee maps), download directly from Blizzard:
+### Map Setup
+Place StarCraft II map files (`.SC2Map`) directly in the `Maps/` folder. The AI automatically detects available maps for training and testing.
 
-- [Blizzard/s2client-proto Map and Replay Packs](https://github.com/Blizzard/s2client-proto?tab=readme-ov-file#downloads)
+### Recommended Maps
+- **Training**: `Simple64`, `Simple96`, `Simple128` for focused learning
+- **Testing**: Standard ladder maps for competitive evaluation
+- **Download**: [Blizzard Map Packs](https://github.com/Blizzard/s2client-proto?tab=readme-ov-file#downloads) (password: `iagreetotheeula`)
 
-**Instructions:**
-- Download the desired map pack zip file.
-- Extract all `.SC2Map` files into your `Maps` folder (see above for structure).
-- You may also extract replays for analysis or training.
+## Project Architecture
 
-The password for the map and replay packs is: `iagreetotheeula` (by using these files, you agree to the AI and Machine Learning License).
-
-## Project Structure
-
-```sh
-StarCraft2Bot/
-├── src/                # Core bot code (platform-independent)
-│   ├── config.py       # Configuration settings (OS detection, paths)
-│   ├── incredibot-sct.py
-│   ├── sc2env.py
-│   ├── trainppo.py
-│   ├── load-train-mlpp.py
-│   └── test_model.py
-├── run/                # Platform-specific run scripts
-│   ├── windows/        # Windows-specific scripts and setup
-│   │   ├── README.md       # Windows setup instructions
-│   │   ├── setup_maps.ps1  # PowerShell script for map setup
-│   │   ├── download_maps.ps1 # PowerShell script for map downloads
-│   │   └── create_simple_map.py # Python script for test maps
-│   ├── linux/          # Linux-specific scripts and setup
-│   │   ├── README.md       # Linux setup instructions
-│   │   └── download_maps.py # Python script for map downloads
-│   └── macos/          # macOS-specific scripts and setup
-│       ├── README.md       # macOS setup instructions
-│       └── setup_maps.py   # Python script for map setup
-├── Maps/               # Downloaded maps (created by scripts)
-├── tests/              # (Optional) Unit tests
-├── pyproject.toml      # Project metadata and dependencies
-├── uv.lock             # uv dependency lock file
-├── .gitignore
-└── README.md
+### Core ML Components
+```
+src/
+├── sc2env.py           # Custom Gymnasium RL environment
+├── trainppo.py         # PPO training pipeline with Wandb integration
+├── incredibot-sct.py   # StarCraft II bot AI implementation
+├── test_model.py       # Model evaluation and testing
+└── config.py           # Configuration and hyperparameters
 ```
 
-## Troubleshooting
+### Architecture
+- **Modular Design**: Clean separation between environment, training, and bot logic
+- **Cross-Platform**: Works on Windows, Linux, macOS with automatic OS detection
+- **Experiment Tracking**: Wandb integration for reproducible training runs
+- **Configurable**: Easy hyperparameter tuning and training duration adjustment
 
-### Common Issues
+## Current Status & Results
 
-1. **"Unsupported operating system" warning**
-   - This is expected if StarCraft II is not found
-   - Follow the platform-specific setup instructions above
+### Training Performance
+- **Episodes**: Configurable training duration (default: 10,000 timesteps per episode)
+- **Reward System**: Multi-objective rewards balancing economy, military production, and tactics
+- **Convergence**: PPO with MLP policies shows stable learning curves
 
-2. **"Maps directory not found" error**
-   - This is common with Xbox Game Pass or incomplete StarCraft II installations
-   - Run the appropriate platform setup script
-   - Or use built-in maps (the bot now uses "Simple64" by default)
+### What the Bot Learned
+- **Economic Management**: Automated worker distribution and resource optimization
+- **Military Production**: Dynamic Void Ray production and tactical deployment
+- **Scouting**: Strategic reconnaissance and enemy base detection
+- **Combat**: Unit positioning and engagement timing
 
-3. **macOS-specific issues**
-   - StarCraft II is not natively available on macOS
-   - Use Wine, CrossOver, or virtualization
-   - See [run/macos/README.md](run/macos/README.md) for detailed instructions
+## Next Steps
 
-### Performance Tips
-
-- **Windows:** Best performance, native support
-- **Linux:** Good performance, good for development
-- **macOS:** May have performance issues with Wine/CrossOver, consider virtualization
-
-## Contributing
-
-Pull requests and issues are welcome! Please:
-
-- Use clear commit messages
-- Follow PEP8 style (run `ruff` and `mypy` for linting/type checks)
-- Add tests for new features if possible
+I'm working on several improvements:
+- **Multi-Race Support**: Extending beyond Protoss to Terran and Zerg strategies
+- **Advanced Vision**: Implementing semantic segmentation for better game state understanding
+- **Hierarchical RL**: Adding high-level strategic planning on top of tactical execution
+- **Self-Play**: Training against progressively stronger versions of itself
+- **Performance Optimization**: Reducing training time and improving sample efficiency
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details
-
-## Known Warnings and Issues
-
-- **DeprecationWarning in sc2process.py**
-  - You may see a warning like:
-    ```
-    DeprecationWarning: parameter 'timeout' of type 'float' is deprecated, please use 'timeout=ClientWSTimeout(ws_close=...)'
-    ```
-  - This comes from the `python-sc2` package (not this repo) and does not affect functionality.
-  - To fix: Wait for an upstream update, or manually edit your local `sc2process.py` to use the new `timeout` parameter as described in the warning.
+MIT License - See [LICENSE](LICENSE) for details

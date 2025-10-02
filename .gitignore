@@ -1,5 +1,6 @@
 #Ignore in progress items
 **/todo/*
+tasks/*
 
 #IDE Ignore section
 .vscode/
