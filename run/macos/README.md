@@ -275,7 +275,7 @@ If you encounter issues:
 ## Files in this Directory
 
 - `setup_maps.py` - Sets up basic maps and provides setup instructions
-- `README.md` - This comprehensive setup guide
+- `README.md` - This full setup guide
 
 ## Next Steps
 

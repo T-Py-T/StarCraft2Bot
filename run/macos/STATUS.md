@@ -19,7 +19,7 @@
 3. **Documentation Updated**
    - Updated main README.md with Parallels recommendation
    - Updated `run/macos/README.md` with detailed setup options
-   - Created `PARALLELS_SETUP.md` - comprehensive Parallels guide
+   - Created `PARALLELS_SETUP.md` - full Parallels guide
    - Removed outdated Whisky references
 
 4. **Cleanup Complete**
@@ -94,7 +94,7 @@
 We've successfully:
 - ✅ Identified the CrossOver compatibility limitations
 - ✅ Created a working CrossOver launcher (with limitations)
-- ✅ Provided a comprehensive Parallels Desktop solution
+- ✅ Provided a full Parallels Desktop solution
 - ✅ Updated all documentation
 - ✅ Cleaned up the codebase
 - ✅ Created troubleshooting tools
