@@ -2,7 +2,6 @@
 """
 Test bot with headless mode and result logging
 """
-import asyncio
 import sys
 import time
 from sc2.main import run_game
@@ -23,7 +22,7 @@ class WorkerRushBot(BotAI):
 
     async def on_end(self, game_result):
         print(f"\n{'='*50}")
-        print(f"GAME ENDED!")
+        print("GAME ENDED!")
         print(f"Result: {game_result}")
         if game_result == Result.Victory:
             print("🎉 WE WON!")

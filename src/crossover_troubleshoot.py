@@ -7,7 +7,6 @@ import os
 import sys
 import subprocess
 import time
-import socket
 from pathlib import Path
 
 def check_crossover_status():

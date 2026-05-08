@@ -91,7 +91,7 @@ def test_sc2_headless():
     ]
     
     try:
-        print(f"  Starting StarCraft II headless...")
+        print("  Starting StarCraft II headless...")
         process = subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         
         # Wait a bit for it to start
@@ -112,7 +112,7 @@ def test_sc2_headless():
                 return False
         else:
             stdout, stderr = process.communicate()
-            print(f"  ❌ StarCraft II exited early")
+            print("  ❌ StarCraft II exited early")
             print(f"  Exit code: {process.returncode}")
             print(f"  Stdout: {stdout[:200]}...")
             print(f"  Stderr: {stderr[:200]}...")

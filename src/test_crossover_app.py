@@ -6,8 +6,6 @@ Test StarCraft II through CrossOver's application launcher
 import os
 import sys
 import subprocess
-import time
-import socket
 from pathlib import Path
 
 def test_crossover_app_launch():

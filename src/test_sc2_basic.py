@@ -8,7 +8,6 @@ import sys
 import subprocess
 import time
 import socket
-from pathlib import Path
 
 def test_sc2_basic_launch():
     """Test StarCraft II with minimal arguments"""
@@ -47,7 +46,7 @@ def test_sc2_basic_launch():
             return True
         else:
             stdout, stderr = process.communicate()
-            print(f"  ❌ StarCraft II exited early")
+            print("  ❌ StarCraft II exited early")
             print(f"  Exit code: {process.returncode}")
             print(f"  Stdout: {stdout[:200]}...")
             print(f"  Stderr: {stderr[:200]}...")
@@ -102,7 +101,7 @@ def test_sc2_with_listen():
                 return False
         else:
             stdout, stderr = process.communicate()
-            print(f"  ❌ StarCraft II exited early")
+            print("  ❌ StarCraft II exited early")
             print(f"  Exit code: {process.returncode}")
             print(f"  Stdout: {stdout[:200]}...")
             print(f"  Stderr: {stderr[:200]}...")

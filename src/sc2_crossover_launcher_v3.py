@@ -8,11 +8,8 @@ This creates a robust launcher that works with the sc2 library and CrossOver.
 import os
 import sys
 import subprocess
-import tempfile
 import shutil
-import time
 import socket
-from pathlib import Path
 
 def test_port_available(port=5000):
     """Test if a port is available"""
@@ -187,7 +184,7 @@ def main():
     
     # Test the launcher
     if test_launcher(launcher_path, port):
-        print(f"\n📝 Environment variables:")
+        print("\n📝 Environment variables:")
         print(f"SC2PATH={base_path}")
         print(f"SC2EXE={launcher_path}")
         print(f"SC2PORT={port}")

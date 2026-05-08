@@ -102,7 +102,7 @@ elif IS_MACOS:
         project_maps_dir = os.path.join(project_root, "Maps")
         os.environ["SC2_MAPS_FALLBACK"] = project_maps_dir
     else:
-        print(f"Warning: StarCraft II not found on macOS")
+        print("Warning: StarCraft II not found on macOS")
         print("StarCraft II is not natively available on macOS. You need to:")
         print("1. Install StarCraft II through Wine, CrossOver, or virtualization")
         print("2. Update the paths in config.py to match your installation")

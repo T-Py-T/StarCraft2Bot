@@ -6,11 +6,8 @@ This creates a proper launcher that the sc2 library can use with CrossOver.
 """
 
 import os
-import sys
 import subprocess
-import tempfile
 import shutil
-from pathlib import Path
 
 def create_sc2_launcher():
     """Create a launcher script that works with the sc2 library"""
@@ -104,7 +101,7 @@ def main():
     except Exception as e:
         print(f"❌ Error testing launcher: {e}")
     
-    print(f"\n📝 To use this launcher:")
+    print("\n📝 To use this launcher:")
     print(f"1. Set SC2PATH to: {os.path.dirname(launcher_path)}")
     print(f"2. Set SC2EXE to: {launcher_path}")
     print(f"3. Or use the macOS app at: {app_path}")

@@ -8,7 +8,6 @@ from gymnasium import spaces
 import numpy as np
 import subprocess
 import pickle
-import time
 import os
 import sys
 
@@ -40,7 +39,7 @@ class Sc2Env(gym.Env):
 						with open(PKL_PATH, 'wb') as f:
 							pickle.dump(state_rwd_action, f)
 						break
-			except Exception as e:
+			except Exception:
 				pass
 		else:
 			print(f"[Error] step(): Max attempts ({MAX_ATTEMPTS}) reached waiting for action.")
@@ -61,7 +60,7 @@ class Sc2Env(gym.Env):
 							reward = state_rwd_action['reward']
 							done = state_rwd_action['done']
 							break
-			except Exception as e:
+			except Exception:
 				map = np.zeros((224, 224, 3), dtype=np.uint8)
 				observation = map
 				# if still failing, input an ACTION, 3 (scout)

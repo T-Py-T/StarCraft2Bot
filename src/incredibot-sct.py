@@ -1,5 +1,5 @@
 # Import config first to set environment variables
-from config import SAVE_REPLAY, REALTIME, WANDB_MODE, IS_WINDOWS, IS_LINUX
+from config import SAVE_REPLAY, REALTIME, WANDB_MODE
 import os
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 PKL_PATH = os.path.join(SRC_DIR, 'state_rwd_action.pkl')
@@ -16,7 +16,6 @@ import random
 import cv2
 import math
 import numpy as np
-import sys
 import pickle
 import time
 
@@ -221,7 +220,7 @@ class IncrediBot(BotAI): # inhereits from BotAI (part of BurnySC2)
                     probe.attack(self.enemy_start_locations[0])
                     self.last_sent = iteration
 
-                except Exception as e:
+                except Exception:
                     pass
 
 

@@ -6,7 +6,6 @@ os.environ["WANDB_MODE"] = WANDB_MODE
 from stable_baselines3 import PPO
 from sc2env import Sc2Env
 import time
-from wandb.integration.sb3 import WandbCallback
 import wandb
 
 
@@ -23,7 +22,7 @@ conf_dict = {"Model": "v19",
 
 
 run = wandb.init(
-    project=f'SC2RLv6',
+    project='SC2RLv6',
     entity="tnt850910",
     config=conf_dict,
     sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
@@ -47,6 +46,6 @@ iters = 0
 while iters < max_games:
     print(f"On iteration: {iters+1} of {max_games}")
     iters += 1
-    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=f"PPO")
+    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name="PPO")
     model.save(f"{models_dir}/{TIMESTEPS*iters}")
 print(f"Training complete. Ran {max_games} games.")
