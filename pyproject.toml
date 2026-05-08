@@ -4,18 +4,21 @@ version = "0.1.0"
 description = "A StarCraft II bot and RL training environment."
 authors = [{name = "Your Name", email = "your@email.com"}]
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.13"
 dependencies = [
-  "sc2",
-  "opencv-python",
-  "numpy",
-  "gymnasium",
-  "stable-baselines3",
-  "wandb",
-  "torch",
-  "tensorboard",
+  "sc2>=0.11.2",
+  "opencv-python>=4.13",
+  "numpy>=2.2,<3",
+  "gymnasium>=1.2",
+  "stable-baselines3>=2.8",
+  "wandb>=0.25",
+  "torch>=2.8",
+  "tensorboard>=2.20",
   "shimmy>=2.0",
-  "protobuf>=3.20.0,<3.21.0"
+  # python-sc2 / s2clientprotocol's generated *_pb2.py files use the legacy
+  # descriptor API that was removed in protobuf 3.21+. Keep this pin until the
+  # upstream stubs are regenerated.
+  "protobuf>=3.20.0,<3.21.0",
 ]
 
 [build-system]
@@ -27,7 +30,7 @@ packages = ["src"]
 
 [project.optional-dependencies]
 dev = [
-  "pytest",
-  "ruff",
-  "mypy"
+  "pytest>=9.0",
+  "ruff>=0.15",
+  "mypy>=2.0",
 ]

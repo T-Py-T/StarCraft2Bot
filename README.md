@@ -33,7 +33,7 @@ I built this StarCraft II bot to explore deep reinforcement learning in complex 
 
 ## Requirements
 
-- Python 3.9–3.12
+- Python 3.10–3.12
 - StarCraft II installed (see platform-specific setup below)
 - [uv](https://github.com/astral-sh/uv) for dependency management
 
