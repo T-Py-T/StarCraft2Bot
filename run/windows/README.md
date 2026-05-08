@@ -5,7 +5,7 @@ This folder contains Windows-specific scripts and setup instructions for running
 ## Prerequisites
 
 - Windows 10/11
-- Python 3.9+ installed
+- Python 3.10+ installed
 - StarCraft II installed on Windows
 - PowerShell (for running scripts)
 - UV package manager (recommended)

@@ -5,7 +5,7 @@ This folder contains Linux/WSL-specific scripts for running the StarCraft II bot
 ## Prerequisites
 
 - WSL2 or Linux
-- Python 3.9+
+- Python 3.10+
 - StarCraft II installed on Windows (accessible via WSL)
 - uv package manager
 
