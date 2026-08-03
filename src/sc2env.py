@@ -17,10 +17,22 @@ from gymnasium import spaces
 
 if __package__:
     from .config import WANDB_MODE
-    from .ipc import empty_observation, load_state, save_state
+    from .ipc import (
+        REQUEST_PATH,
+        RESPONSE_PATH,
+        empty_observation,
+        load_state,
+        save_state,
+    )
 else:
     from config import WANDB_MODE
-    from ipc import empty_observation, load_state, save_state
+    from ipc import (
+        REQUEST_PATH,
+        RESPONSE_PATH,
+        empty_observation,
+        load_state,
+        save_state,
+    )
 
 os.environ["WANDB_MODE"] = WANDB_MODE
 
@@ -54,19 +66,24 @@ class Sc2Env(gym.Env):
 
     def _wait_for_state(
         self,
+        path: Path,
         predicate: Callable[[dict[str, Any]], bool],
         timeout_seconds: float,
     ) -> dict[str, Any] | None:
         deadline = time.monotonic() + timeout_seconds
         while True:
             try:
-                state = load_state()
+                state = load_state(path)
                 if predicate(state):
                     return state
             except (OSError, KeyError, ValueError):
                 pass
             if self._bot_process is None or self._bot_process.poll() is not None:
-                return None
+                try:
+                    final_state = load_state(path)
+                    return final_state if predicate(final_state) else None
+                except (OSError, KeyError, ValueError):
+                    return None
             if time.monotonic() >= deadline:
                 return None
             time.sleep(RETRY_DELAY_SECONDS)
@@ -95,7 +112,8 @@ class Sc2Env(gym.Env):
                 "episode_id": uuid.uuid4().hex,
                 "request_id": self._request_id,
                 "ready": False,
-            }
+            },
+            REQUEST_PATH,
         )
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
@@ -105,6 +123,7 @@ class Sc2Env(gym.Env):
             return self._failure_response()
 
         request_state = self._wait_for_state(
+            RESPONSE_PATH,
             lambda state: (
                 state["episode_id"] == episode_id
                 and state["request_id"] == self._request_id
@@ -127,11 +146,21 @@ class Sc2Env(gym.Env):
             )
 
         self._request_id += 1
-        request_state["action"] = int(action)
-        request_state["request_id"] = self._request_id
-        save_state(request_state)
+        save_state(
+            {
+                "state": empty_observation(),
+                "reward": 0,
+                "action": int(action),
+                "done": False,
+                "episode_id": episode_id,
+                "request_id": self._request_id,
+                "ready": True,
+            },
+            REQUEST_PATH,
+        )
 
         response_state = self._wait_for_state(
+            RESPONSE_PATH,
             lambda state: (
                 state["episode_id"] == episode_id
                 and state["request_id"] == self._request_id
@@ -174,7 +203,8 @@ class Sc2Env(gym.Env):
                 "episode_id": episode_id,
                 "request_id": 0,
                 "ready": False,
-            }
+            },
+            REQUEST_PATH,
         )
 
         script_path = Path(__file__).resolve().with_name("incredibot-sct.py")

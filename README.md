@@ -139,9 +139,11 @@ make clean-logs
 ### Environment communication
 
 The Gym environment and bot exchange a fixed-shape observation, action, reward,
-and completion flag through an atomic NumPy archive in `src/.runtime/`. The
-archive loader disables object payloads, and runtime state/results are ignored by
-Git. Set `SC2_RUNTIME_DIR` when separate training jobs need isolated state paths.
+and completion flag through separate, single-writer request and response NumPy
+archives in `src/.runtime/`. Atomic publication uses a unique temporary file for
+each write, the archive loader disables object payloads, and episode/request IDs
+reject stale messages. Runtime state/results are ignored by Git. Set
+`SC2_RUNTIME_DIR` when separate training jobs need isolated state paths.
 
 ## Game Maps
 

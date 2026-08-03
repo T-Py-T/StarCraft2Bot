@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.ipc import add_reward, empty_observation, load_state, save_state
+from src.ipc import empty_observation, load_state, save_state
 
 
 def test_state_round_trip_and_reward_update(tmp_path: Path) -> None:
@@ -23,17 +23,15 @@ def test_state_round_trip_and_reward_update(tmp_path: Path) -> None:
         },
         state_path,
     )
-    add_reward(2.5, state_path)
-
     state = load_state(state_path)
     np.testing.assert_array_equal(state["state"], observation)
-    assert state["reward"] == pytest.approx(3.75)
+    assert state["reward"] == pytest.approx(1.25)
     assert state["action"] is None
     assert state["done"] is False
     assert state["episode_id"] == "episode-1"
     assert state["request_id"] == 3
     assert state["ready"] is True
-    assert not state_path.with_suffix(".npz.tmp").exists()
+    assert list(tmp_path.glob("*.tmp")) == []
 
 
 def test_state_round_trip_preserves_action_and_done(tmp_path: Path) -> None:

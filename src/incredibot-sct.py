@@ -18,7 +18,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.main import run_game
 from sc2.player import Bot, Computer
 
-from ipc import empty_observation, load_state, save_state
+from ipc import REQUEST_PATH, RESPONSE_PATH, empty_observation, load_state, save_state
 
 SRC_DIR = Path(__file__).resolve().parent
 RESULTS_PATH = SRC_DIR / ".runtime" / "results.txt"
@@ -49,7 +49,7 @@ class IncrediBot(BotAI):
     async def on_start(self) -> None:
         if self._episode_id is None:
             raise RuntimeError("SC2_EPISODE_ID is required")
-        data = await asyncio.to_thread(load_state)
+        data = await asyncio.to_thread(load_state, REQUEST_PATH)
         if data["episode_id"] != self._episode_id:
             raise RuntimeError("SC2 episode no longer owns the IPC state")
         self._request_id = data["request_id"]
@@ -62,7 +62,7 @@ class IncrediBot(BotAI):
                 "ready": True,
             }
         )
-        await asyncio.to_thread(save_state, data)
+        await asyncio.to_thread(save_state, data, RESPONSE_PATH)
         self.prev_stargate_count = 0
         self.episode_reward = 0
 
@@ -80,14 +80,15 @@ class IncrediBot(BotAI):
                 "episode_id": self._episode_id,
                 "request_id": self._request_id,
                 "ready": True,
-            }
+            },
+            RESPONSE_PATH,
         )
         print(f"[Reward] Game ended with result {result}, reward written: {reward}")
 
     async def _wait_for_action(self) -> tuple[int, int]:
         while True:
             try:
-                state = await asyncio.to_thread(load_state)
+                state = await asyncio.to_thread(load_state, REQUEST_PATH)
                 if state["episode_id"] != self._episode_id:
                     raise RuntimeError("SC2 episode no longer owns the IPC state")
                 action = state["action"]
@@ -437,6 +438,7 @@ class IncrediBot(BotAI):
                 "request_id": request_id,
                 "ready": True,
             },
+            RESPONSE_PATH,
         )
 
 

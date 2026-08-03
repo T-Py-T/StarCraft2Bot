@@ -21,8 +21,10 @@ stale, generated, vendored, upstream, or unsafe to change. All 47 are addressed.
 
 The tracked pickle files and result log were runtime artifacts rather than
 source inputs. They are removed in favor of ignored `src/.runtime/` state. The
-replacement NumPy archive loader disables object payloads and publishes files
-atomically, preventing executable pickle deserialization and partial-read races.
+replacement NumPy archive loader disables object payloads. Separate single-writer
+request/response channels, episode/request correlation, and unique temporary
+files prevent executable pickle deserialization, lost updates, stale responses,
+and partial-read races.
 
 ## Verification scope
 
