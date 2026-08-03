@@ -96,7 +96,10 @@ class IncrediBot(BotAI):
                     await asyncio.sleep(0.01)
                     continue
                 request_id = state["request_id"]
-                if request_id != self._request_id + 1:
+                if request_id <= self._request_id:
+                    await asyncio.sleep(0.01)
+                    continue
+                if request_id > self._request_id + 1:
                     raise RuntimeError("SC2 received an out-of-order action request")
                 self._request_id = request_id
                 return action, request_id

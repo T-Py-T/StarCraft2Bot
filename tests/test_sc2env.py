@@ -172,3 +172,26 @@ def test_step_reads_final_response_after_child_exit(monkeypatch) -> None:
     assert terminated is True
     assert truncated is False
     assert info == {}
+
+
+def test_step_prefers_terminal_response_over_new_request(monkeypatch) -> None:
+    responses: Iterator[dict[str, Any]] = iter(
+        [
+            _state(action=None),
+            _state(action=None, request_id=0, reward=1000, done=True),
+        ]
+    )
+    writes: list[tuple[dict[str, Any], object]] = []
+    monkeypatch.setattr(sc2env, "load_state", lambda _path: next(responses))
+    monkeypatch.setattr(
+        sc2env, "save_state", lambda state, path: writes.append((state.copy(), path))
+    )
+    environment = _active_environment(_FakeProcess())
+
+    _, reward, terminated, truncated, info = environment.step(4)
+
+    assert writes[0][0]["request_id"] == 1
+    assert reward == 1000
+    assert terminated is True
+    assert truncated is False
+    assert info == {}

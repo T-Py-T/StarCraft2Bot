@@ -64,6 +64,17 @@ class Sc2Env(gym.Env):
     def _failure_response() -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         return empty_observation(), 0.0, True, False, {}
 
+    @staticmethod
+    def _matches_response(
+        state: dict[str, Any], episode_id: str, request_id: int
+    ) -> bool:
+        return (
+            state["episode_id"] == episode_id
+            and state["ready"]
+            and state["action"] is None
+            and (state["done"] or state["request_id"] == request_id)
+        )
+
     def _wait_for_state(
         self,
         path: Path,
@@ -124,11 +135,8 @@ class Sc2Env(gym.Env):
 
         request_state = self._wait_for_state(
             RESPONSE_PATH,
-            lambda state: (
-                state["episode_id"] == episode_id
-                and state["request_id"] == self._request_id
-                and state["ready"]
-                and state["action"] is None
+            lambda state: self._matches_response(
+                state, episode_id, self._request_id
             ),
             READY_TIMEOUT_SECONDS,
         )
@@ -161,11 +169,8 @@ class Sc2Env(gym.Env):
 
         response_state = self._wait_for_state(
             RESPONSE_PATH,
-            lambda state: (
-                state["episode_id"] == episode_id
-                and state["request_id"] == self._request_id
-                and state["ready"]
-                and state["action"] is None
+            lambda state: self._matches_response(
+                state, episode_id, self._request_id
             ),
             RESPONSE_TIMEOUT_SECONDS,
         )

@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from src import ipc
 from src.ipc import empty_observation, load_state, save_state
 
 
@@ -73,3 +74,42 @@ def test_state_loader_rejects_object_payloads(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Object arrays cannot be loaded"):
         load_state(state_path)
+
+
+def test_state_publication_retries_windows_sharing_violation(
+    monkeypatch, tmp_path: Path
+) -> None:
+    state_path = tmp_path / "state.npz"
+    original_replace = Path.replace
+    attempts = 0
+    delays: list[float] = []
+
+    def replace_after_sharing_violations(source: Path, destination: Path) -> Path:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError("destination is open")
+        return original_replace(source, destination)
+
+    monkeypatch.setattr(Path, "replace", replace_after_sharing_violations)
+    monkeypatch.setattr(ipc.time, "sleep", delays.append)
+
+    save_state(
+        {
+            "state": empty_observation(),
+            "reward": 4,
+            "action": None,
+            "done": False,
+            "episode_id": "episode-retry",
+            "request_id": 8,
+            "ready": True,
+        },
+        state_path,
+    )
+
+    assert attempts == 3
+    assert delays == [
+        ipc.REPLACE_RETRY_DELAY_SECONDS,
+        ipc.REPLACE_RETRY_DELAY_SECONDS * 2,
+    ]
+    assert load_state(state_path)["request_id"] == 8

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -14,10 +15,23 @@ RUNTIME_DIR = Path(
 )
 REQUEST_PATH = RUNTIME_DIR / "request.npz"
 RESPONSE_PATH = RUNTIME_DIR / "response.npz"
+REPLACE_ATTEMPTS = 5
+REPLACE_RETRY_DELAY_SECONDS = 0.01
 
 
 def empty_observation() -> np.ndarray:
     return np.zeros((224, 224, 3), dtype=np.uint8)
+
+
+def _replace_with_retry(source: Path, destination: Path) -> None:
+    for attempt in range(REPLACE_ATTEMPTS):
+        try:
+            source.replace(destination)
+            return
+        except PermissionError:
+            if attempt == REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(REPLACE_RETRY_DELAY_SECONDS * (attempt + 1))
 
 
 def load_state(path: Path) -> dict[str, Any]:
@@ -58,7 +72,7 @@ def save_state(data: dict[str, Any], path: Path) -> None:
                 request_id=int(data["request_id"]),
                 ready=bool(data["ready"]),
             )
-        temporary_path.replace(path)
+        _replace_with_retry(temporary_path, path)
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
