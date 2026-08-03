@@ -5,7 +5,7 @@ macOS Map Setup Script for StarCraft2Bot
 This script helps set up StarCraft II maps on macOS.
 Since StarCraft II is not natively available on macOS, this script:
 1. Creates a Maps directory
-2. Downloads basic maps for testing
+2. Reports genuine map archives already present
 3. Provides instructions for Wine/CrossOver setup
 """
 

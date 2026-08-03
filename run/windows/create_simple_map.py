@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Create a simple test map for StarCraft II
-This is a minimal map file that should allow the bot to start
+Install a genuine Simple64 map archive for StarCraft II.
+
+The source defaults to Maps/Simple64.SC2Map and can be overridden with
+SC2_MAP_SOURCE.
 """
 
 import shutil
@@ -16,7 +18,7 @@ import config  # noqa: E402  # sets SC2PATH for the detected platform
 
 
 def create_simple_map():
-    """Create a simple test map file"""
+    """Copy a genuine Simple64 archive into the SC2 Maps directory."""
     print("=== Creating Simple64 Test Map ===")
 
     # Get the SC2PATH
@@ -34,7 +36,7 @@ def create_simple_map():
         maps_dir.mkdir(parents=True)
         print(f"Created Maps directory: {maps_dir}")
 
-    # Create a simple test map file
+    # Copy a genuine map archive; plain XML is not a valid .SC2Map file.
     simple64_path = maps_dir / "Simple64.SC2Map"
     source_path = Path(
         config.os.environ.get(

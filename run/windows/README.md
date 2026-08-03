@@ -29,10 +29,11 @@ uv sync
 
 ### 3. Setup StarCraft II Maps
 ```powershell
-# Create Maps directory (simple version - recommended)
+# Create the Maps directory (simple version - recommended)
 .\download_maps_simple.ps1
 
-# Create a simple test map
+# Place a genuine Simple64.SC2Map in the project Maps directory,
+# then copy it into the StarCraft II installation
 uv run create_simple_map.py
 
 # Or try the full download script (may have issues with Xbox Game Pass version)
@@ -53,7 +54,9 @@ uv run src/incredibot-sct.py
 - **`setup_maps.ps1`** - Creates Maps directory and provides instructions
 - **`download_maps_simple.ps1`** - Simple version that just creates Maps directory (recommended)
 - **`download_maps.ps1`** - Full version that tries to download maps (may have issues)
-- **`create_simple_map.py`** - Creates a simple test map for debugging
+- **`create_simple_map.py`** - Copies a genuine `Simple64.SC2Map` archive from
+  the project `Maps` directory into the StarCraft II installation. Set
+  `SC2_MAP_SOURCE` to use a different source path.
 - **`test_scripts.ps1`** - Tests PowerShell script syntax
 
 ## Configuration
@@ -75,6 +78,8 @@ PowerShell -ExecutionPolicy Bypass -File script_name.ps1
 If the bot can't find maps, run:
 ```powershell
 .\download_maps_simple.ps1
+# First place a genuine Simple64.SC2Map in the project Maps directory,
+# or set SC2_MAP_SOURCE to its full path.
 uv run create_simple_map.py
 ```
 
@@ -88,6 +93,7 @@ uv run python_script.py
 ### Xbox Game Pass Version
 If you have StarCraft II from Xbox Game Pass, the download script may not work. In that case:
 1. Use the `download_maps_simple.ps1` script to create Maps directory
-2. Use the `create_simple_map.py` script to create a test map
-3. Or manually download maps from the StarCraft II community
-4. Or use only built-in maps (Simple64, etc.) 
+2. Obtain a genuine map archive as described in the main
+   [Game Maps](../../README.md#game-maps) guide
+3. Use `create_simple_map.py` to copy that archive into the installation
+4. Or use maps already included with the installation
