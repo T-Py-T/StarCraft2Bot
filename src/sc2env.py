@@ -1,9 +1,12 @@
 """Gymnasium environment for the StarCraft II bot."""
 
+from __future__ import annotations
+
 import os
 import subprocess
 import sys
 import time
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -22,8 +25,9 @@ else:
 os.environ["WANDB_MODE"] = WANDB_MODE
 
 HEADLESS = True
-MAX_ATTEMPTS = 200
 RETRY_DELAY_SECONDS = 0.01
+READY_TIMEOUT_SECONDS = 120.0
+RESPONSE_TIMEOUT_SECONDS = 30.0
 
 
 class Sc2Env(gym.Env):
@@ -41,37 +45,104 @@ class Sc2Env(gym.Env):
             dtype=np.uint8,
         )
         self._bot_process: subprocess.Popen[bytes] | None = None
+        self._episode_id: str | None = None
+        self._request_id = 0
 
     @staticmethod
     def _failure_response() -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         return empty_observation(), 0.0, True, False, {}
 
-    @staticmethod
     def _wait_for_state(
+        self,
         predicate: Callable[[dict[str, Any]], bool],
+        timeout_seconds: float,
     ) -> dict[str, Any] | None:
-        for _ in range(MAX_ATTEMPTS):
+        deadline = time.monotonic() + timeout_seconds
+        while True:
             try:
                 state = load_state()
                 if predicate(state):
                     return state
             except (OSError, KeyError, ValueError):
                 pass
+            if self._bot_process is None or self._bot_process.poll() is not None:
+                return None
+            if time.monotonic() >= deadline:
+                return None
             time.sleep(RETRY_DELAY_SECONDS)
-        return None
+
+    def _stop_bot_process(self) -> None:
+        process = self._bot_process
+        self._bot_process = None
+        if process is None or process.poll() is not None:
+            return
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+
+    def _invalidate_episode(self) -> None:
+        self._stop_bot_process()
+        self._episode_id = None
+        save_state(
+            {
+                "state": empty_observation(),
+                "reward": 0,
+                "action": None,
+                "done": True,
+                "episode_id": uuid.uuid4().hex,
+                "request_id": self._request_id,
+                "ready": False,
+            }
+        )
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
-        request_state = self._wait_for_state(lambda state: state["action"] is None)
-        if request_state is None:
-            print(f"[Error] step(): no action slot after {MAX_ATTEMPTS} attempts")
+        episode_id = self._episode_id
+        if episode_id is None:
+            print("[Error] step(): environment has no active episode")
             return self._failure_response()
 
+        request_state = self._wait_for_state(
+            lambda state: (
+                state["episode_id"] == episode_id
+                and state["request_id"] == self._request_id
+                and state["ready"]
+                and state["action"] is None
+            ),
+            READY_TIMEOUT_SECONDS,
+        )
+        if request_state is None:
+            print("[Error] step(): bot did not become ready")
+            self._invalidate_episode()
+            return self._failure_response()
+        if request_state["done"]:
+            return (
+                request_state["state"],
+                request_state["reward"],
+                True,
+                False,
+                {},
+            )
+
+        self._request_id += 1
         request_state["action"] = int(action)
+        request_state["request_id"] = self._request_id
         save_state(request_state)
 
-        response_state = self._wait_for_state(lambda state: state["action"] is None)
+        response_state = self._wait_for_state(
+            lambda state: (
+                state["episode_id"] == episode_id
+                and state["request_id"] == self._request_id
+                and state["ready"]
+                and state["action"] is None
+            ),
+            RESPONSE_TIMEOUT_SECONDS,
+        )
         if response_state is None:
-            print(f"[Error] step(): no bot response after {MAX_ATTEMPTS} attempts")
+            print("[Error] step(): bot response timed out")
+            self._invalidate_episode()
             return self._failure_response()
 
         return (
@@ -89,34 +160,33 @@ class Sc2Env(gym.Env):
         options: dict[str, Any] | None = None,
     ) -> tuple[np.ndarray, dict[str, Any]]:
         super().reset(seed=seed)
+        self._stop_bot_process()
         observation = empty_observation()
+        episode_id = uuid.uuid4().hex
+        self._episode_id = episode_id
+        self._request_id = 0
         save_state(
             {
                 "state": observation,
                 "reward": 0,
                 "action": None,
                 "done": False,
+                "episode_id": episode_id,
+                "request_id": 0,
+                "ready": False,
             }
         )
 
-        if self._bot_process is None or self._bot_process.poll() is not None:
-            script_path = Path(__file__).resolve().with_name("incredibot-sct.py")
-            environment = os.environ.copy()
-            if HEADLESS:
-                environment["SC2_HEADLESS"] = "1"
-            self._bot_process = subprocess.Popen(
-                [sys.executable, str(script_path)], env=environment
-            )
+        script_path = Path(__file__).resolve().with_name("incredibot-sct.py")
+        environment = os.environ.copy()
+        environment["SC2_EPISODE_ID"] = episode_id
+        if HEADLESS:
+            environment["SC2_HEADLESS"] = "1"
+        self._bot_process = subprocess.Popen(
+            [sys.executable, str(script_path)], env=environment
+        )
         return observation, {}
 
     def close(self) -> None:
-        if self._bot_process is None or self._bot_process.poll() is not None:
-            return
-        self._bot_process.terminate()
-        try:
-            self._bot_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self._bot_process.kill()
-            self._bot_process.wait(timeout=5)
-        finally:
-            self._bot_process = None
+        self._stop_bot_process()
+        self._episode_id = None

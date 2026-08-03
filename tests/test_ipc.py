@@ -17,6 +17,9 @@ def test_state_round_trip_and_reward_update(tmp_path: Path) -> None:
             "reward": 1.25,
             "action": None,
             "done": False,
+            "episode_id": "episode-1",
+            "request_id": 3,
+            "ready": True,
         },
         state_path,
     )
@@ -27,6 +30,9 @@ def test_state_round_trip_and_reward_update(tmp_path: Path) -> None:
     assert state["reward"] == pytest.approx(3.75)
     assert state["action"] is None
     assert state["done"] is False
+    assert state["episode_id"] == "episode-1"
+    assert state["request_id"] == 3
+    assert state["ready"] is True
     assert not state_path.with_suffix(".npz.tmp").exists()
 
 
@@ -38,6 +44,9 @@ def test_state_round_trip_preserves_action_and_done(tmp_path: Path) -> None:
             "reward": -1,
             "action": 4,
             "done": True,
+            "episode_id": "episode-2",
+            "request_id": 7,
+            "ready": False,
         },
         state_path,
     )
@@ -45,6 +54,9 @@ def test_state_round_trip_preserves_action_and_done(tmp_path: Path) -> None:
     state = load_state(state_path)
     assert state["action"] == 4
     assert state["done"] is True
+    assert state["episode_id"] == "episode-2"
+    assert state["request_id"] == 7
+    assert state["ready"] is False
 
 
 def test_state_loader_rejects_object_payloads(tmp_path: Path) -> None:
@@ -56,6 +68,9 @@ def test_state_loader_rejects_object_payloads(tmp_path: Path) -> None:
             reward=0,
             action=-1,
             done=False,
+            episode_id="episode-unsafe",
+            request_id=0,
+            ready=False,
         )
 
     with pytest.raises(ValueError, match="Object arrays cannot be loaded"):

@@ -25,6 +25,9 @@ def load_state(path: Path = STATE_PATH) -> dict[str, Any]:
             "reward": float(archive["reward"]),
             "action": None if encoded_action == -1 else encoded_action,
             "done": bool(archive["done"]),
+            "episode_id": str(archive["episode_id"]),
+            "request_id": int(archive["request_id"]),
+            "ready": bool(archive["ready"]),
         }
 
 
@@ -39,6 +42,9 @@ def save_state(data: dict[str, Any], path: Path = STATE_PATH) -> None:
             reward=float(data["reward"]),
             action=-1 if data["action"] is None else int(data["action"]),
             done=bool(data["done"]),
+            episode_id=str(data["episode_id"]),
+            request_id=int(data["request_id"]),
+            ready=bool(data["ready"]),
         )
     temporary_path.replace(path)
 

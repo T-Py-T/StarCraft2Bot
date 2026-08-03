@@ -43,18 +43,26 @@ class IncrediBot(BotAI):
         self.prev_stargate_count = 0
         self.episode_reward = 0
         self._step_reward = 0.0
+        self._episode_id = os.environ.get("SC2_EPISODE_ID")
+        self._request_id = 0
 
     async def on_start(self) -> None:
-        data = {
-            "state": empty_observation(),
-            "reward": 0,
-            "action": None,
-            "done": False,
-        }
-        try:
-            await asyncio.to_thread(load_state)
-        except (OSError, KeyError, ValueError):
-            await asyncio.to_thread(save_state, data)
+        if self._episode_id is None:
+            raise RuntimeError("SC2_EPISODE_ID is required")
+        data = await asyncio.to_thread(load_state)
+        if data["episode_id"] != self._episode_id:
+            raise RuntimeError("SC2 episode no longer owns the IPC state")
+        self._request_id = data["request_id"]
+        data.update(
+            {
+                "state": empty_observation(),
+                "reward": 0,
+                "action": None,
+                "done": False,
+                "ready": True,
+            }
+        )
+        await asyncio.to_thread(save_state, data)
         self.prev_stargate_count = 0
         self.episode_reward = 0
 
@@ -69,19 +77,28 @@ class IncrediBot(BotAI):
                 "reward": reward,
                 "action": None,
                 "done": True,
+                "episode_id": self._episode_id,
+                "request_id": self._request_id,
+                "ready": True,
             }
         )
         print(f"[Reward] Game ended with result {result}, reward written: {reward}")
 
-    async def _wait_for_action(self) -> int:
+    async def _wait_for_action(self) -> tuple[int, int]:
         while True:
             try:
                 state = await asyncio.to_thread(load_state)
+                if state["episode_id"] != self._episode_id:
+                    raise RuntimeError("SC2 episode no longer owns the IPC state")
                 action = state["action"]
-                if action is None:
+                if action is None or not state["ready"]:
                     await asyncio.sleep(0.01)
                     continue
-                return action
+                request_id = state["request_id"]
+                if request_id != self._request_id + 1:
+                    raise RuntimeError("SC2 received an out-of-order action request")
+                self._request_id = request_id
+                return action, request_id
             except (OSError, KeyError, ValueError) as exc:
                 print(f"[Error] Could not read action state: {exc}")
                 await asyncio.sleep(0.01)
@@ -386,7 +403,7 @@ class IncrediBot(BotAI):
             return
 
         self._step_reward = 0
-        action = await self._wait_for_action()
+        action, request_id = await self._wait_for_action()
         await self.distribute_workers()
         action_performed = await self._perform_action(action, iteration)
         await self._perform_opportunistic_actions()
@@ -416,6 +433,9 @@ class IncrediBot(BotAI):
                 "reward": reward,
                 "action": None,
                 "done": False,
+                "episode_id": self._episode_id,
+                "request_id": request_id,
+                "ready": True,
             },
         )
 
