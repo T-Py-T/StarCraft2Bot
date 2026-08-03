@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""
-Helper script to download StarCraft II maps
-This is useful for users with incomplete StarCraft II installations (e.g., Xbox Game Pass)
+"""Copy genuine StarCraft II maps already discoverable by python-sc2.
+
+This stages existing archives in both the SC2 installation and project Maps
+directories; it does not download maps from the network.
 """
 
 import shutil
@@ -16,7 +17,7 @@ import config  # noqa: E402, F401  # sets SC2PATH for the detected platform
 
 
 def download_maps():
-    """Download basic StarCraft II maps"""
+    """Copy discoverable map archives into the configured map directories."""
     print("=== StarCraft II Maps Downloader ===")
 
     # Get the SC2PATH from environment (set by config.py)
@@ -40,7 +41,7 @@ def download_maps():
         project_maps_dir.mkdir(parents=True)
         print(f"Created project Maps directory: {project_maps_dir}")
 
-    # List of basic maps to download
+    # Map names python-sc2 may already be able to resolve.
     maps = [
         "Simple64",
         "2000AtmospheresAIE",

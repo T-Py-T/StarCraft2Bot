@@ -135,9 +135,7 @@ class Sc2Env(gym.Env):
 
         request_state = self._wait_for_state(
             RESPONSE_PATH,
-            lambda state: self._matches_response(
-                state, episode_id, self._request_id
-            ),
+            lambda state: self._matches_response(state, episode_id, self._request_id),
             READY_TIMEOUT_SECONDS,
         )
         if request_state is None:
@@ -169,9 +167,7 @@ class Sc2Env(gym.Env):
 
         response_state = self._wait_for_state(
             RESPONSE_PATH,
-            lambda state: self._matches_response(
-                state, episode_id, self._request_id
-            ),
+            lambda state: self._matches_response(state, episode_id, self._request_id),
             RESPONSE_TIMEOUT_SECONDS,
         )
         if response_state is None:
