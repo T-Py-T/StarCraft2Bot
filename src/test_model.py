@@ -16,4 +16,3 @@ done = False
 while not done:
     action, _states = model.predict(obs)
     obs, rewards, dones, info = env.step(action)
-

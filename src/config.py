@@ -19,7 +19,9 @@ STARCRAFT_II_PATH_LINUX_DEFAULT = "/home/taylor/StarCraftII/Versions"
 # Users typically run it through Wine, CrossOver, or virtualization
 STARCRAFT_II_PATH_MACOS_WINE = "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
 STARCRAFT_II_PATH_MACOS_CROSSOVER = "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/StarCraft II/StarCraft II.exe"
-STARCRAFT_II_PATH_MACOS_DEFAULT = "/Applications/StarCraft II/StarCraft II.app/Contents/MacOS/StarCraft II"
+STARCRAFT_II_PATH_MACOS_DEFAULT = (
+    "/Applications/StarCraft II/StarCraft II.app/Contents/MacOS/StarCraft II"
+)
 
 # Set the SC2PATH environment variable for the sc2 library based on OS
 # The sc2 library uses this environment variable to find the StarCraft II installation
@@ -27,7 +29,7 @@ if IS_WINDOWS:
     if os.path.exists(STARCRAFT_II_PATH_WINDOWS):
         os.environ["SC2PATH"] = os.path.dirname(STARCRAFT_II_PATH_WINDOWS)
         print(f"Windows: Set SC2PATH to: {os.environ['SC2PATH']}")
-        
+
         # Also set project Maps directory as fallback
         try:
             project_root = os.path.dirname(os.path.dirname(__file__))
@@ -36,25 +38,31 @@ if IS_WINDOWS:
         project_maps_dir = os.path.join(project_root, "Maps")
         os.environ["SC2_MAPS_FALLBACK"] = project_maps_dir
     else:
-        print(f"Warning: StarCraft II executable not found at {STARCRAFT_II_PATH_WINDOWS}")
-        print("Please update STARCRAFT_II_PATH_WINDOWS in config.py to match your installation")
+        print(
+            f"Warning: StarCraft II executable not found at {STARCRAFT_II_PATH_WINDOWS}"
+        )
+        print(
+            "Please update STARCRAFT_II_PATH_WINDOWS in config.py to match your installation"
+        )
 
 elif IS_LINUX:
     # Try WSL path first, then default Linux path
     if os.path.exists(STARCRAFT_II_PATH_LINUX):
         os.environ["SC2PATH"] = os.path.dirname(STARCRAFT_II_PATH_LINUX)
         print(f"Linux/WSL: Set SC2PATH to: {os.environ['SC2PATH']}")
-        
+
         # Check if Maps directory exists, if not, create a symlink or download maps
         maps_dir = os.path.join(os.environ["SC2PATH"], "Maps")
         if not os.path.exists(maps_dir):
             print(f"Warning: Maps directory not found at {maps_dir}")
-            print("This is common with Xbox Game Pass or incomplete StarCraft II installations.")
+            print(
+                "This is common with Xbox Game Pass or incomplete StarCraft II installations."
+            )
             print("You may need to:")
             print("1. Download StarCraft II maps manually")
             print("2. Or use a different StarCraft II installation")
             print("3. Or run the bot with built-in maps only")
-        
+
         # Also set project Maps directory as fallback
         try:
             project_root = os.path.dirname(os.path.dirname(__file__))
@@ -62,37 +70,43 @@ elif IS_LINUX:
             project_root = os.path.dirname(os.getcwd())
         project_maps_dir = os.path.join(project_root, "Maps")
         os.environ["SC2_MAPS_FALLBACK"] = project_maps_dir
-            
+
     elif os.path.exists(STARCRAFT_II_PATH_LINUX_DEFAULT):
         os.environ["SC2PATH"] = STARCRAFT_II_PATH_LINUX_DEFAULT
         print(f"Linux: Set SC2PATH to: {os.environ['SC2PATH']}")
     else:
-        print(f"Warning: StarCraft II executable not found at {STARCRAFT_II_PATH_LINUX}")
-        print(f"Warning: StarCraft II executable not found at {STARCRAFT_II_PATH_LINUX_DEFAULT}")
-        print("Please update STARCRAFT_II_PATH_LINUX in config.py to match your installation")
+        print(
+            f"Warning: StarCraft II executable not found at {STARCRAFT_II_PATH_LINUX}"
+        )
+        print(
+            f"Warning: StarCraft II executable not found at {STARCRAFT_II_PATH_LINUX_DEFAULT}"
+        )
+        print(
+            "Please update STARCRAFT_II_PATH_LINUX in config.py to match your installation"
+        )
 
 elif IS_MACOS:
     # Try different macOS installation methods
     sc2_found = False
-    
+
     # Try Wine installation
     if os.path.exists(STARCRAFT_II_PATH_MACOS_WINE):
         os.environ["SC2PATH"] = os.path.dirname(STARCRAFT_II_PATH_MACOS_WINE)
         print(f"macOS (Wine): Set SC2PATH to: {os.environ['SC2PATH']}")
         sc2_found = True
-        
+
     # Try CrossOver installation
     elif os.path.exists(STARCRAFT_II_PATH_MACOS_CROSSOVER):
         os.environ["SC2PATH"] = os.path.dirname(STARCRAFT_II_PATH_MACOS_CROSSOVER)
         print(f"macOS (CrossOver): Set SC2PATH to: {os.environ['SC2PATH']}")
         sc2_found = True
-        
+
     # Try default macOS path (if someone managed to get it working)
     elif os.path.exists(STARCRAFT_II_PATH_MACOS_DEFAULT):
         os.environ["SC2PATH"] = os.path.dirname(STARCRAFT_II_PATH_MACOS_DEFAULT)
         print(f"macOS (Native): Set SC2PATH to: {os.environ['SC2PATH']}")
         sc2_found = True
-    
+
     if sc2_found:
         # Set project Maps directory as fallback
         try:
@@ -102,7 +116,7 @@ elif IS_MACOS:
         project_maps_dir = os.path.join(project_root, "Maps")
         os.environ["SC2_MAPS_FALLBACK"] = project_maps_dir
     else:
-        print(f"Warning: StarCraft II not found on macOS")
+        print("Warning: StarCraft II not found on macOS")
         print("StarCraft II is not natively available on macOS. You need to:")
         print("1. Install StarCraft II through Wine, CrossOver, or virtualization")
         print("2. Update the paths in config.py to match your installation")
@@ -122,4 +136,4 @@ WANDB_MODE = "offline"
 
 # Disable wandb prompts and set to offline mode
 os.environ["WANDB_MODE"] = "offline"
-os.environ["WANDB_SILENT"] = "true" 
+os.environ["WANDB_SILENT"] = "true"

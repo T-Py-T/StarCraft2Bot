@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 os.environ["SC2PATH"] = "/tmp"
 os.environ["SC2EXE"] = "/tmp/sc2_crossover_launcher_v3.sh"
 
+
 def test_port_connection(host="127.0.0.1", port=5000, timeout=5):
     """Test if StarCraft II is listening on the specified port"""
     try:
@@ -30,41 +31,46 @@ def test_port_connection(host="127.0.0.1", port=5000, timeout=5):
         print(f"Error testing port: {e}")
         return False
 
+
 def wait_for_sc2(port=5000, max_wait=30):
     """Wait for StarCraft II to be ready"""
     print(f"⏳ Waiting for StarCraft II to be ready on port {port}...")
-    
+
     for i in range(max_wait):
         if test_port_connection(port=port, timeout=1):
             print(f"✅ StarCraft II is ready on port {port}!")
             return True
-        print(f"   Still waiting... ({i+1}/{max_wait})")
+        print(f"   Still waiting... ({i + 1}/{max_wait})")
         time.sleep(1)
-    
+
     print(f"❌ StarCraft II did not become ready within {max_wait} seconds")
     return False
+
 
 def main():
     print("🍷 Enhanced CrossOver Test - StarCraft2Bot")
     print("=" * 50)
-    
+
     # Check if launcher exists
     if not os.path.exists("/tmp/sc2_crossover_launcher_v3.sh"):
-        print("❌ CrossOver launcher v3 not found! Run sc2_crossover_launcher_v3.py first.")
+        print(
+            "❌ CrossOver launcher v3 not found! Run sc2_crossover_launcher_v3.py first."
+        )
         return False
-    
+
     print("✅ CrossOver launcher v3 found")
     print(f"SC2PATH: {os.environ['SC2PATH']}")
     print(f"SC2EXE: {os.environ['SC2EXE']}")
-    
+
     # Try to determine the port from the launcher
     port = 5000  # Default port
     try:
-        with open("/tmp/sc2_crossover_launcher_v3.sh", 'r') as f:
+        with open("/tmp/sc2_crossover_launcher_v3.sh", "r") as f:
             content = f.read()
             if "--port" in content:
                 # Extract port from launcher script
                 import re
+
                 match = re.search(r'--port"\s+"(\d+)"', content)
                 if match:
                     port = int(match.group(1))
@@ -72,18 +78,19 @@ def main():
     except Exception as e:
         print(f"⚠️  Could not determine port from launcher: {e}")
         print(f"Using default port {port}")
-    
+
     try:
         print("\n🚀 Starting StarCraft II game through CrossOver...")
         print("This may take a moment to start...")
-        
+
         # Import after setting environment variables
         from sc2 import run_game, maps, Race, Difficulty
         from sc2.player import Bot, Computer
         from sc2.bot_ai import BotAI
-        
+
         class SimpleTestBot(BotAI):
             """A very simple test bot"""
+
             async def on_step(self, iteration):
                 if iteration == 0:
                     print(f"🤖 Bot started! Game step {iteration}")
@@ -91,38 +98,38 @@ def main():
                     print(f"   Players: {len(self.players)}")
                     print(f"   My race: {self.race}")
                     print(f"   Enemy race: {self.enemy_race}")
-                
+
                 # Simple strategy: just build workers
                 if iteration < 100:  # Only for first 100 steps
                     for worker in self.workers:
                         if worker.is_idle:
                             worker.gather(self.mineral_field.closest_to(worker))
-                
+
                 if iteration % 50 == 0:
                     print(f"   Step {iteration}: {len(self.workers)} workers")
-        
+
         # Wait for StarCraft II to be ready
         if not wait_for_sc2(port):
             print("❌ StarCraft II did not become ready")
             return False
-        
+
         print("\n🎮 Starting game...")
-        
+
         # Run the game with a simple map
         run_game(
             maps.get("Simple64"),
             [Bot(Race.Protoss, SimpleTestBot()), Computer(Race.Zerg, Difficulty.Easy)],
             realtime=False,
         )
-        
+
         print("✅ Game completed successfully!")
         print("🎉 CrossOver setup is working perfectly!")
         return True
-        
+
     except Exception as e:
         print(f"❌ Error running game: {e}")
         print(f"Error type: {type(e).__name__}")
-        
+
         # Check if it's a websocket error
         if "Websocket" in str(e) or "websocket" in str(e).lower():
             print("\n🔧 This appears to be a websocket communication issue.")
@@ -138,8 +145,9 @@ def main():
             print("Try running the test again with more patience.")
         else:
             print(f"\n🔧 Unexpected error: {e}")
-        
+
         return False
+
 
 if __name__ == "__main__":
     success = main()

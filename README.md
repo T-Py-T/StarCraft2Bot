@@ -57,6 +57,16 @@ I built this StarCraft II bot to explore deep reinforcement learning in complex 
    make test-model
    ```
 
+For development, install the locked development tools and run the headless
+checks without launching StarCraft II:
+
+```sh
+uv sync --locked --extra dev
+make test
+make lint
+make type-check
+```
+
 ## Platform Setup
 
 ### Windows (Recommended)
@@ -126,6 +136,13 @@ make clean-logs
 - **Training Parameters**: Adjust PPO hyperparameters and training duration
 - **Reward Engineering**: Modify reward weights for different strategic objectives
 
+### Environment communication
+
+The Gym environment and bot exchange a fixed-shape observation, action, reward,
+and completion flag through an atomic NumPy archive in `src/.runtime/`. The
+archive loader disables object payloads, and runtime state/results are ignored by
+Git. Set `SC2_RUNTIME_DIR` when separate training jobs need isolated state paths.
+
 ## Game Maps
 
 ### Map Setup
@@ -144,6 +161,7 @@ src/
 ├── sc2env.py           # Custom Gymnasium RL environment
 ├── trainppo.py         # PPO training pipeline with Wandb integration
 ├── incredibot-sct.py   # StarCraft II bot AI implementation
+├── ipc.py              # Safe atomic environment/bot state exchange
 ├── test_model.py       # Model evaluation and testing
 └── config.py           # Configuration and hyperparameters
 ```

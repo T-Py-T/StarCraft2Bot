@@ -1,101 +1,122 @@
-# Import config first to set environment variables
-from config import WANDB_MODE
+"""Gymnasium environment for the StarCraft II bot."""
+
 import os
-os.environ["WANDB_MODE"] = WANDB_MODE
+import subprocess
+import sys
+import time
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
 import gymnasium as gym
-from gymnasium import spaces
 import numpy as np
-import subprocess
-import pickle
-import time
-import os
-import sys
+from gymnasium import spaces
 
-HEADLESS = True  # Set to True to run SC2 in headless mode (no graphics)
+if __package__:
+    from .config import WANDB_MODE
+    from .ipc import empty_observation, load_state, save_state
+else:
+    from config import WANDB_MODE
+    from ipc import empty_observation, load_state, save_state
+
+os.environ["WANDB_MODE"] = WANDB_MODE
+
+HEADLESS = True
 MAX_ATTEMPTS = 200
-PKL_PATH = 'state_rwd_action.pkl'
+RETRY_DELAY_SECONDS = 0.01
+
 
 class Sc2Env(gym.Env):
-	"""Custom Environment that follows gym interface"""
-	def __init__(self):
-		super(Sc2Env, self).__init__()
-		# Define action and observation space
-		# They must be gym.spaces objects
-		# Example when using discrete actions:
-		self.action_space = spaces.Discrete(6)
-		self.observation_space = spaces.Box(low=0, high=255,
-											shape=(224, 224, 3), dtype=np.uint8)
+    """Exchange Gym actions and observations with a managed SC2 bot process."""
 
-	def step(self, action):
-		# waits for action.
-		for attempt in range(MAX_ATTEMPTS):
-			try:
-				with open(PKL_PATH, 'rb') as f:
-					state_rwd_action = pickle.load(f)
-					if state_rwd_action['action'] is not None:
-						continue
-					else:
-						state_rwd_action['action'] = action
-						with open(PKL_PATH, 'wb') as f:
-							pickle.dump(state_rwd_action, f)
-						break
-			except Exception as e:
-				pass
-		else:
-			print(f"[Error] step(): Max attempts ({MAX_ATTEMPTS}) reached waiting for action.")
-			# Return default/failure state
-			map = np.zeros((224, 224, 3), dtype=np.uint8)
-			return map, 0, True, False, {}
+    metadata = {"render_modes": []}
 
-		# waits for the new state to return (map and reward) (no new action yet. )
-		for attempt in range(MAX_ATTEMPTS):
-			try:
-				if os.path.getsize(PKL_PATH) > 0:
-					with open(PKL_PATH, 'rb') as f:
-						state_rwd_action = pickle.load(f)
-						if state_rwd_action['action'] is None:
-							continue
-						else:
-							state = state_rwd_action['state']
-							reward = state_rwd_action['reward']
-							done = state_rwd_action['done']
-							break
-			except Exception as e:
-				map = np.zeros((224, 224, 3), dtype=np.uint8)
-				observation = map
-				# if still failing, input an ACTION, 3 (scout)
-				data = {"state": map, "reward": 0, "action": 3, "done": False}
-				with open(PKL_PATH, 'wb') as f:
-					pickle.dump(data, f)
-				state = map
-				reward = 0
-				done = False
-				action = 3
-		else:
-			print(f"[Error] step(): Max attempts ({MAX_ATTEMPTS}) reached waiting for state.")
-			map = np.zeros((224, 224, 3), dtype=np.uint8)
-			return map, 0, True, False, {}
+    def __init__(self) -> None:
+        super().__init__()
+        self.action_space = spaces.Discrete(6)
+        self.observation_space = spaces.Box(
+            low=0,
+            high=255,
+            shape=(224, 224, 3),
+            dtype=np.uint8,
+        )
+        self._bot_process: subprocess.Popen[bytes] | None = None
 
-		info ={}
-		observation = state
-		terminated = done
-		truncated = False
-		return observation, reward, terminated, truncated, info
+    @staticmethod
+    def _failure_response() -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
+        return empty_observation(), 0.0, True, False, {}
 
+    @staticmethod
+    def _wait_for_state(
+        predicate: Callable[[dict[str, Any]], bool],
+    ) -> dict[str, Any] | None:
+        for _ in range(MAX_ATTEMPTS):
+            try:
+                state = load_state()
+                if predicate(state):
+                    return state
+            except (OSError, KeyError, ValueError):
+                pass
+            time.sleep(RETRY_DELAY_SECONDS)
+        return None
 
-	def reset(self, seed=None, options=None):
-		print("RESETTING ENVIRONMENT!!!!!!!!!!!!!")
-		map = np.zeros((224, 224, 3), dtype=np.uint8)
-		observation = map
-		data = {"state": map, "reward": 0, "action": None, "done": False}  # empty action waiting for the next one!
-		with open(PKL_PATH, 'wb') as f:
-			pickle.dump(data, f)
+    def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
+        request_state = self._wait_for_state(lambda state: state["action"] is None)
+        if request_state is None:
+            print(f"[Error] step(): no action slot after {MAX_ATTEMPTS} attempts")
+            return self._failure_response()
 
-		# run incredibot-sct.py non-blocking:
-		script_path = os.path.join(os.path.dirname(__file__), 'incredibot-sct.py')
-		if HEADLESS:
-			subprocess.Popen([sys.executable, script_path], env={**os.environ, "SC2_HEADLESS": "1"})
-		else:
-			subprocess.Popen([sys.executable, script_path])
-		return observation, {}  # Gymnasium expects (observation, info)
+        request_state["action"] = int(action)
+        save_state(request_state)
+
+        response_state = self._wait_for_state(lambda state: state["action"] is None)
+        if response_state is None:
+            print(f"[Error] step(): no bot response after {MAX_ATTEMPTS} attempts")
+            return self._failure_response()
+
+        return (
+            response_state["state"],
+            response_state["reward"],
+            response_state["done"],
+            False,
+            {},
+        )
+
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        super().reset(seed=seed)
+        observation = empty_observation()
+        save_state(
+            {
+                "state": observation,
+                "reward": 0,
+                "action": None,
+                "done": False,
+            }
+        )
+
+        if self._bot_process is None or self._bot_process.poll() is not None:
+            script_path = Path(__file__).resolve().with_name("incredibot-sct.py")
+            environment = os.environ.copy()
+            if HEADLESS:
+                environment["SC2_HEADLESS"] = "1"
+            self._bot_process = subprocess.Popen(
+                [sys.executable, str(script_path)], env=environment
+            )
+        return observation, {}
+
+    def close(self) -> None:
+        if self._bot_process is None or self._bot_process.poll() is not None:
+            return
+        self._bot_process.terminate()
+        try:
+            self._bot_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self._bot_process.kill()
+            self._bot_process.wait(timeout=5)
+        finally:
+            self._bot_process = None

@@ -8,22 +8,21 @@ This creates a robust launcher that works with the sc2 library and CrossOver.
 import os
 import sys
 import subprocess
-import tempfile
 import shutil
-import time
 import socket
-from pathlib import Path
+
 
 def test_port_available(port=5000):
     """Test if a port is available"""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(1)
-        result = sock.connect_ex(('127.0.0.1', port))
+        result = sock.connect_ex(("127.0.0.1", port))
         sock.close()
         return result != 0  # True if port is available
-    except:
+    except OSError:
         return True
+
 
 def find_available_port(start_port=5000, max_attempts=10):
     """Find an available port starting from start_port"""
@@ -32,17 +31,18 @@ def find_available_port(start_port=5000, max_attempts=10):
             return port
     return None
 
+
 def create_sc2_launcher_v3():
     """Create an enhanced launcher script with better websocket support"""
-    
+
     # Find an available port
     port = find_available_port()
     if not port:
         print("❌ No available ports found!")
         return None, None, None
-    
+
     print(f"✅ Using port {port} for StarCraft II")
-    
+
     # Create the launcher script with enhanced configuration
     launcher_content = f'''#!/bin/bash
 # SC2 CrossOver Launcher v3 - Enhanced for websocket communication
@@ -86,23 +86,23 @@ else
     exec "$WINE_EXE" "$SC2_EXE" "$@"
 fi
 '''
-    
+
     # Write the launcher script
     launcher_path = "/tmp/sc2_crossover_launcher_v3.sh"
-    with open(launcher_path, 'w') as f:
+    with open(launcher_path, "w") as f:
         f.write(launcher_content)
-    
+
     os.chmod(launcher_path, 0o755)
-    
+
     # Create the macOS app structure that sc2 library expects
     app_path = "/tmp/SC2.app"
     os.makedirs(f"{app_path}/Contents/MacOS", exist_ok=True)
-    
+
     # Copy the launcher to the app
     shutil.copy(launcher_path, f"{app_path}/Contents/MacOS/SC2")
-    
+
     # Create Info.plist
-    info_plist = '''<?xml version="1.0" encoding="UTF-8"?>
+    info_plist = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -115,42 +115,47 @@ fi
     <key>CFBundleVersion</key>
     <string>1.0</string>
 </dict>
-</plist>'''
-    
-    with open(f"{app_path}/Contents/Info.plist", 'w') as f:
+</plist>"""
+
+    with open(f"{app_path}/Contents/Info.plist", "w") as f:
         f.write(info_plist)
-    
+
     return launcher_path, app_path, port
+
 
 def setup_sc2_structure():
     """Set up the complete SC2 directory structure"""
-    
+
     # Create the complete structure
     base_path = "/tmp"
     versions_path = f"{base_path}/Versions/Base94137/SC2.app/Contents/MacOS"
     maps_path = f"{base_path}/Maps"
-    
+
     os.makedirs(versions_path, exist_ok=True)
     os.makedirs(maps_path, exist_ok=True)
-    
+
     # Copy maps
-    project_maps = "/Users/taylor/Library/CloudStorage/Dropbox/_GitHub/StarCraft2Bot/Maps"
+    project_maps = (
+        "/Users/taylor/Library/CloudStorage/Dropbox/_GitHub/StarCraft2Bot/Maps"
+    )
     if os.path.exists(project_maps):
         for map_file in os.listdir(project_maps):
-            if map_file.endswith('.SC2Map'):
+            if map_file.endswith(".SC2Map"):
                 shutil.copy(f"{project_maps}/{map_file}", f"{maps_path}/{map_file}")
                 print(f"✅ Copied map: {map_file}")
-    
+
     return base_path, versions_path, maps_path
+
 
 def test_launcher(launcher_path, port):
     """Test the launcher to make sure it works"""
     print(f"\n🧪 Testing launcher on port {port}...")
-    
+
     try:
         # Test with --help first
-        result = subprocess.run([launcher_path, "--help"], 
-                              capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            [launcher_path, "--help"], capture_output=True, text=True, timeout=10
+        )
         if result.returncode == 0:
             print("✅ Launcher basic test passed")
             return True
@@ -164,30 +169,31 @@ def test_launcher(launcher_path, port):
         print(f"❌ Error testing launcher: {e}")
         return False
 
+
 def main():
     print("🍷 Creating SC2 CrossOver Launcher v3")
     print("=" * 50)
-    
+
     # Create launcher
     launcher_path, app_path, port = create_sc2_launcher_v3()
     if not launcher_path:
         return False
-    
+
     # Set up directory structure
     base_path, versions_path, maps_path = setup_sc2_structure()
-    
+
     # Copy launcher to versions directory
     shutil.copy(launcher_path, f"{versions_path}/SC2")
-    
+
     print(f"✅ Launcher created: {launcher_path}")
     print(f"✅ macOS app created: {app_path}")
     print(f"✅ Directory structure set up in: {base_path}")
     print(f"✅ Maps copied to: {maps_path}")
     print(f"✅ Using port: {port}")
-    
+
     # Test the launcher
     if test_launcher(launcher_path, port):
-        print(f"\n📝 Environment variables:")
+        print("\n📝 Environment variables:")
         print(f"SC2PATH={base_path}")
         print(f"SC2EXE={launcher_path}")
         print(f"SC2PORT={port}")
@@ -195,6 +201,7 @@ def main():
     else:
         print("❌ Launcher test failed")
         return False
+
 
 if __name__ == "__main__":
     success = main()
