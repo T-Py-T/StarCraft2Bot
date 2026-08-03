@@ -25,8 +25,8 @@ if (-not (Test-Path $MapsDir)) {
 
 Write-Host "`nMaps directory is ready!" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Cyan
-Write-Host "1. Create a simple test map:" -ForegroundColor White
+Write-Host "1. Place a genuine Simple64.SC2Map in the project Maps directory, then copy it:" -ForegroundColor White
 Write-Host "   uv run create_simple_map.py" -ForegroundColor White
 Write-Host "`n2. Then test the training:" -ForegroundColor White
 Write-Host "   cd .." -ForegroundColor White
-Write-Host "   uv run src/trainppo.py" -ForegroundColor White 
+Write-Host "   uv run src/trainppo.py" -ForegroundColor White

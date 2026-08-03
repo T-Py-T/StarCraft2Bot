@@ -185,7 +185,7 @@ quick-start: install setup-maps check-env
 	@echo "Next steps:"
 	@echo "1. Configure StarCraft II path in src/config.py"
 	@echo "2. Run 'make train' to start training"
-	@echo "3. Run 'make test' to test the bot"
+	@echo "3. Run 'make test' to run headless unit tests"
 
 # Platform detection and setup
 detect-platform:
