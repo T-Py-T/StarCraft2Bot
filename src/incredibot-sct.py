@@ -46,7 +46,7 @@ class IncrediBot(BotAI):
         self._episode_id = os.environ.get("SC2_EPISODE_ID")
         self._request_id = 0
 
-    async def on_start(self) -> None:
+    async def on_start_async(self) -> None:
         if self._episode_id is None:
             raise RuntimeError("SC2_EPISODE_ID is required")
         data = await asyncio.to_thread(load_state, REQUEST_PATH)

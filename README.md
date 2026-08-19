@@ -67,6 +67,10 @@ make lint
 make type-check
 ```
 
+Pull requests and `main` run the focused IPC, environment, and bot tests on
+Python 3.9 and 3.11. These checks validate the process protocol only; they do
+not launch StarCraft II or establish live-game behavior.
+
 ## Platform Setup
 
 ### Windows (Recommended)
@@ -174,18 +178,16 @@ src/
 - **Experiment Tracking**: Wandb integration for reproducible training runs
 - **Configurable**: Easy hyperparameter tuning and training duration adjustment
 
-## Current Status & Results
+## Validation Status
 
-### Training Performance
-- **Episodes**: Configurable training duration (default: 10,000 timesteps per episode)
-- **Reward System**: Multi-objective rewards balancing economy, military production, and tactics
-- **Convergence**: PPO with MLP policies shows stable learning curves
+The locked headless test suite verifies atomic request/response publication,
+episode and request correlation, fixed `224x224x3` observations, stale-message
+handling, terminal-response precedence, and the initial ready handshake through
+BurnySC2's awaited `on_start_async` lifecycle hook.
 
-### What the Bot Learned
-- **Economic Management**: Automated worker distribution and resource optimization
-- **Military Production**: Dynamic Void Ray production and tactical deployment
-- **Scouting**: Strategic reconnaissance and enemy base detection
-- **Combat**: Unit positioning and engagement timing
+Live StarCraft II training and gameplay have not been validated in this change.
+A licensed StarCraft II installation is still required to evaluate learning,
+convergence, win rate, strategy quality, and end-to-end runtime behavior.
 
 ## Next Steps
 
