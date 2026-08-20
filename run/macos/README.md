@@ -274,7 +274,8 @@ If you encounter issues:
 
 ## Files in this Directory
 
-- `setup_maps.py` - Sets up basic maps and provides setup instructions
+- `setup_maps.py` - Creates the project `Maps` directory, reports genuine map
+  archives already present, and provides setup instructions
 - `README.md` - This full setup guide
 
 ## Next Steps

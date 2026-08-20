@@ -1,500 +1,453 @@
-# Import config first to set environment variables
-from config import SAVE_REPLAY, REALTIME, WANDB_MODE, IS_WINDOWS, IS_LINUX
+"""StarCraft II bot used by the reinforcement-learning environment."""
+
+import asyncio
+import math
 import os
-SRC_DIR = os.path.dirname(os.path.abspath(__file__))
-PKL_PATH = os.path.join(SRC_DIR, 'state_rwd_action.pkl')
-RESULTS_PATH = os.path.join(SRC_DIR, 'results.txt')
+import random
+import time
+from pathlib import Path
+from typing import Any
+
+import cv2
+import numpy as np
+from config import REALTIME, SAVE_REPLAY, WANDB_MODE
+from sc2 import maps
+from sc2.bot_ai import BotAI
+from sc2.data import Difficulty, Race
+from sc2.ids.unit_typeid import UnitTypeId
+from sc2.main import run_game
+from sc2.player import Bot, Computer
+
+from ipc import REQUEST_PATH, RESPONSE_PATH, empty_observation, load_state, save_state
+
+SRC_DIR = Path(__file__).resolve().parent
+RESULTS_PATH = SRC_DIR / ".runtime" / "results.txt"
 os.environ["WANDB_MODE"] = WANDB_MODE
 
-from sc2.bot_ai import BotAI  # parent class we inherit from
-from sc2.data import Difficulty, Race  # difficulty for bots, race for the 1 of 3 races
-from sc2.main import run_game  # function that facilitates actually running the agents in games
-from sc2.player import Bot, Computer  #wrapper for whether or not the agent is one of your bots, or a "computer" player
-from sc2 import maps  # maps method for loading maps to play in.
-from sc2.ids.unit_typeid import UnitTypeId
-import random
-import cv2
-import math
-import numpy as np
-import sys
-import pickle
-import time
-
-total_steps = 10000 
-steps_for_pun = np.linspace(0, 1, total_steps)
-step_punishment = ((np.exp(steps_for_pun**3)/10) - 0.1)*10
-
-VERBOSE = True  # Set to True for detailed action/reward logging
+VERBOSE = True
 ACTION_NAMES = {
     0: "Expand/Mine",
     1: "Build Stargate",
     2: "Build Voidray",
     3: "Scout",
     4: "Attack",
-    5: "Flee"
+    5: "Flee",
 }
 
 
-class IncrediBot(BotAI): # inhereits from BotAI (part of BurnySC2)
-    def __init__(self):
+class IncrediBot(BotAI):
+    """Protoss bot controlled through the atomic RL state protocol."""
+
+    def __init__(self) -> None:
         super().__init__()
         self.prev_stargate_count = 0
         self.episode_reward = 0
+        self._step_reward = 0.0
+        self._episode_id = os.environ.get("SC2_EPISODE_ID")
+        self._request_id = 0
 
-    async def on_start(self):
-        # Initialize/reset state file at the start of the game
-        map = np.zeros((224, 224, 3), dtype=np.uint8)
-        data = {"state": map, "reward": 0, "action": None, "done": False}
-        with open(PKL_PATH, 'wb') as f:
-            pickle.dump(data, f)
+    async def on_start_async(self) -> None:
+        if self._episode_id is None:
+            raise RuntimeError("SC2_EPISODE_ID is required")
+        data = await asyncio.to_thread(load_state, REQUEST_PATH)
+        if data["episode_id"] != self._episode_id:
+            raise RuntimeError("SC2 episode no longer owns the IPC state")
+        self._request_id = data["request_id"]
+        data.update(
+            {
+                "state": empty_observation(),
+                "reward": 0,
+                "action": None,
+                "done": False,
+                "ready": True,
+            }
+        )
+        await asyncio.to_thread(save_state, data, RESPONSE_PATH)
         self.prev_stargate_count = 0
         self.episode_reward = 0
 
-    def on_end(self, result):
-        # Write result to file and mark state as done
-        if str(result) == "Result.Victory":
-            rwd = 1000  # Increased reward for victory
-        else:
-            rwd = -1000 # Increased penalty for defeat
-        with open(RESULTS_PATH, "a") as f:
-            f.write(f"{result}\n")
-        map = np.zeros((224, 224, 3), dtype=np.uint8)
-        data = {"state": map, "reward": rwd, "action": None, "done": True}
-        with open(PKL_PATH, 'wb') as f:
-            pickle.dump(data, f)
-        print(f"[Reward] Game ended with result {result}, reward written: {rwd}")
-        # Cleanup (cv2.destroyAllWindows, time.sleep, sys.exit) should be done after run_game returns if needed.
+    def on_end(self, result: Any) -> None:
+        reward = 1000 if str(result) == "Result.Victory" else -1000
+        RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with RESULTS_PATH.open("a", encoding="utf-8") as results_file:
+            results_file.write(f"{result}\n")
+        save_state(
+            {
+                "state": empty_observation(),
+                "reward": reward,
+                "action": None,
+                "done": True,
+                "episode_id": self._episode_id,
+                "request_id": self._request_id,
+                "ready": True,
+            },
+            RESPONSE_PATH,
+        )
+        print(f"[Reward] Game ended with result {result}, reward written: {reward}")
 
-    async def on_step(self, iteration: int): # on_step is a method that is called every step of the game.
-        # Guard: skip step if mineral_field is not available yet
-        if not hasattr(self, "mineral_field") or self.mineral_field is None:
-            return
-        
-        no_action = True
-        while no_action:
+    async def _wait_for_action(self) -> tuple[int, int]:
+        while True:
             try:
-                with open(PKL_PATH, 'rb') as f:
-                    state_rwd_action = pickle.load(f)
+                state = await asyncio.to_thread(load_state, REQUEST_PATH)
+                if state["episode_id"] != self._episode_id:
+                    raise RuntimeError("SC2 episode no longer owns the IPC state")
+                action = state["action"]
+                if action is None or not state["ready"]:
+                    await asyncio.sleep(0.01)
+                    continue
+                request_id = state["request_id"]
+                if request_id <= self._request_id:
+                    await asyncio.sleep(0.01)
+                    continue
+                if request_id > self._request_id + 1:
+                    raise RuntimeError("SC2 received an out-of-order action request")
+                self._request_id = request_id
+                return action, request_id
+            except (OSError, KeyError, ValueError) as exc:
+                print(f"[Error] Could not read action state: {exc}")
+                await asyncio.sleep(0.01)
 
-                    if state_rwd_action['action'] is None:
-                        # Randomly select an action for exploration (weighted)
-                        # Weights: [expand, build stargate, build voidray, scout, attack, flee]
-                        action_weights = [0.2, 0.2, 0.2, 0.15, 0.15, 0.1]
-                        state_rwd_action['action'] = random.choices([0, 1, 2, 3, 4, 5], weights=action_weights)[0]
-                        print(f"[Exploration] Randomly selected action: {state_rwd_action['action']}")
-                        no_action = False
-                    else:
-                        no_action = False
-            except Exception as e:
-                print(f"[Error] Could not read action from PKL: {e}")
-                pass
+    async def _expand_or_mine(self) -> None:
+        found_something = False
+        if (
+            self.supply_left < 4
+            and self.already_pending(UnitTypeId.PYLON) == 0
+            and self.can_afford(UnitTypeId.PYLON)
+        ):
+            await self.build(UnitTypeId.PYLON, near=self.townhalls.random)
+            found_something = True
 
-        await self.distribute_workers() # put idle workers back to work
+        if not found_something:
+            for nexus in self.townhalls:
+                worker_count = len(self.workers.closer_than(10, nexus))
+                if (
+                    worker_count < 22
+                    and nexus.is_idle
+                    and self.can_afford(UnitTypeId.PROBE)
+                ):
+                    nexus.train(UnitTypeId.PROBE)
+                    found_something = True
 
-        action = state_rwd_action['action']
-        action_name = ACTION_NAMES.get(action, 'Unknown')
-        reward_for_this_step = 0
-        '''
-        0: expand (ie: move to next spot, or build to 16 (minerals)+3 assemblers+3)
-        1: build stargate (or up to one) (evenly)
-        2: build voidray (evenly)
-        3: send scout (evenly/random/closest to enemy?)
-        4: attack (known buildings, units, then enemy base, just go in logical order.)
-        5: voidray flee (back to base)
-        '''
+                for geyser in self.vespene_geyser.closer_than(10, nexus):
+                    if not self.can_afford(UnitTypeId.ASSIMILATOR):
+                        break
+                    nearby = self.structures(UnitTypeId.ASSIMILATOR).closer_than(
+                        2.0, geyser
+                    )
+                    if not nearby.exists:
+                        await self.build(UnitTypeId.ASSIMILATOR, geyser)
+                        found_something = True
 
-        # 0: expand (ie: move to next spot, or build to 16 (minerals)+3 assemblers+3)
-        if action == 0:
-            try:
-                found_something = False
-                if self.supply_left < 4:
-                    # build pylons. 
-                    if self.already_pending(UnitTypeId.PYLON) == 0:
-                        if self.can_afford(UnitTypeId.PYLON):
-                            await self.build(UnitTypeId.PYLON, near=random.choice(self.townhalls))
-                            found_something = True
+        if (
+            not found_something
+            and self.already_pending(UnitTypeId.NEXUS) == 0
+            and self.can_afford(UnitTypeId.NEXUS)
+        ):
+            await self.expand_now()
 
-                if not found_something:
+    async def _build_stargate(self) -> None:
+        for nexus in self.townhalls:
+            if (
+                not self.structures(UnitTypeId.GATEWAY).closer_than(10, nexus).exists
+                and self.can_afford(UnitTypeId.GATEWAY)
+                and self.already_pending(UnitTypeId.GATEWAY) == 0
+            ):
+                await self.build(UnitTypeId.GATEWAY, near=nexus)
+            if (
+                not self.structures(UnitTypeId.CYBERNETICSCORE)
+                .closer_than(10, nexus)
+                .exists
+                and self.can_afford(UnitTypeId.CYBERNETICSCORE)
+                and self.already_pending(UnitTypeId.CYBERNETICSCORE) == 0
+            ):
+                await self.build(UnitTypeId.CYBERNETICSCORE, near=nexus)
+            if (
+                not self.structures(UnitTypeId.STARGATE).closer_than(10, nexus).exists
+                and self.can_afford(UnitTypeId.STARGATE)
+                and self.already_pending(UnitTypeId.STARGATE) == 0
+            ):
+                await self.build(UnitTypeId.STARGATE, near=nexus)
 
-                    for nexus in self.townhalls:
-                        # get worker count for this nexus:
-                        worker_count = len(self.workers.closer_than(10, nexus))
-                        if worker_count < 22: # 16+3+3
-                            if nexus.is_idle and self.can_afford(UnitTypeId.PROBE):
-                                nexus.train(UnitTypeId.PROBE)
-                                found_something = True
+        current_count = self.structures(UnitTypeId.STARGATE).amount
+        if current_count > self.prev_stargate_count:
+            reward = 100 * (current_count - self.prev_stargate_count)
+            self._step_reward += reward
+            self.episode_reward += reward
+            print(
+                f"[Reward] Built {current_count - self.prev_stargate_count} new "
+                f"stargate(s): +{reward} reward (total: {self.episode_reward})"
+            )
+        self.prev_stargate_count = current_count
 
-                        # have we built enough assimilators?
-                        # find vespene geysers
-                        for geyser in self.vespene_geyser.closer_than(10, nexus):
-                            # build assimilator if there isn't one already:
-                            if not self.can_afford(UnitTypeId.ASSIMILATOR):
-                                break
-                            if not self.structures(UnitTypeId.ASSIMILATOR).closer_than(2.0, geyser).exists:
-                                await self.build(UnitTypeId.ASSIMILATOR, geyser)
-                                found_something = True
+    def _build_voidrays(self) -> None:
+        for stargate in self.structures(UnitTypeId.STARGATE).ready.idle:
+            if self.can_afford(UnitTypeId.VOIDRAY):
+                stargate.train(UnitTypeId.VOIDRAY)
 
-                if not found_something:
-                    if self.already_pending(UnitTypeId.NEXUS) == 0 and self.can_afford(UnitTypeId.NEXUS):
-                        await self.expand_now()
+    def _send_scout(self, iteration: int) -> bool:
+        last_sent = getattr(self, "last_sent", 0)
+        if iteration - last_sent <= 200:
+            return False
+        probes = self.units(UnitTypeId.PROBE)
+        available_probes = probes.idle if probes.idle.exists else probes
+        if not available_probes:
+            return False
+        probe = available_probes.random
+        probe.attack(self.enemy_start_locations[0])
+        self.last_sent = iteration
+        return True
 
-            except Exception as e:
-                print(e)
-
-
-        #1: build stargate (or up to one) (evenly)
-        elif action == 1:
-            try:
-                # iterate thru all nexus and see if these buildings are close
-                for nexus in self.townhalls:
-                    # is there is not a gateway close:
-                    if not self.structures(UnitTypeId.GATEWAY).closer_than(10, nexus).exists:
-                        # if we can afford it:
-                        if self.can_afford(UnitTypeId.GATEWAY) and self.already_pending(UnitTypeId.GATEWAY) == 0:
-                            # build gateway
-                            await self.build(UnitTypeId.GATEWAY, near=nexus)
-                    # if the is not a cybernetics core close:
-                    if not self.structures(UnitTypeId.CYBERNETICSCORE).closer_than(10, nexus).exists:
-                        # if we can afford it:
-                        if self.can_afford(UnitTypeId.CYBERNETICSCORE) and self.already_pending(UnitTypeId.CYBERNETICSCORE) == 0:
-                            # build cybernetics core
-                            await self.build(UnitTypeId.CYBERNETICSCORE, near=nexus)
-                    # if there is not a stargate close:
-                    if not self.structures(UnitTypeId.STARGATE).closer_than(10, nexus).exists:
-                        # if we can afford it:
-                        if self.can_afford(UnitTypeId.STARGATE) and self.already_pending(UnitTypeId.STARGATE) == 0:
-                            # build stargate
-                            await self.build(UnitTypeId.STARGATE, near=nexus)
-                # Stargate reward logic: reward agent for each new stargate built
-                current_stargate_count = self.structures(UnitTypeId.STARGATE).amount
-                if current_stargate_count > self.prev_stargate_count:
-                    reward = 100 * (current_stargate_count - self.prev_stargate_count)  # Increased reward
-                    reward_for_this_step += reward
-                    print(f"[Reward] Built {current_stargate_count - self.prev_stargate_count} new stargate(s): +{reward} reward (total: {self.episode_reward})")
-                    # Update the state file with the new reward
-                    try:
-                        with open(PKL_PATH, 'rb') as f:
-                            data = pickle.load(f)
-                        data['reward'] += reward
-                        with open(PKL_PATH, 'wb') as f:
-                            pickle.dump(data, f)
-                        print(f"[Reward] Stargate reward propagated to PKL: {reward}")
-                    except Exception as e:
-                        print(f"[Reward] Error updating reward in state file: {e}")
-                    self.prev_stargate_count = current_stargate_count
-                else:
-                    self.prev_stargate_count = current_stargate_count
-                # End stargate reward logic
-
-            except Exception as e:
-                print(e)
-
-
-        #2: build voidray (random stargate)
-        elif action == 2:
-            try:
-                if self.can_afford(UnitTypeId.VOIDRAY):
-                    for sg in self.structures(UnitTypeId.STARGATE).ready.idle:
-                        if self.can_afford(UnitTypeId.VOIDRAY):
-                            sg.train(UnitTypeId.VOIDRAY)
-            
-            except Exception as e:
-                print(e)
-
-        #3: send scout
-        elif action == 3:
-            # are there any idle probes:
-            try:
-                self.last_sent
-            except:
-                self.last_sent = 0
-
-            # if self.last_sent doesnt exist yet:
-            if (iteration - self.last_sent) > 200:
-                try:
-                    if self.units(UnitTypeId.PROBE).idle.exists:
-                        # pick one of these randomly:
-                        probe = random.choice(self.units(UnitTypeId.PROBE).idle)
-                    else:
-                        probe = random.choice(self.units(UnitTypeId.PROBE))
-                    # send probe towards enemy base:
-                    probe.attack(self.enemy_start_locations[0])
-                    self.last_sent = iteration
-
-                except Exception as e:
-                    pass
-
-
-        #4: attack (known buildings, units, then enemy base, just go in logical order.)
-        elif action == 4:
-            try:
-                # take all void rays and attack!
-                for voidray in self.units(UnitTypeId.VOIDRAY).idle:
-                    # if we can attack:
-                    if self.enemy_units.closer_than(10, voidray):
-                        # attack!
-                        voidray.attack(random.choice(self.enemy_units.closer_than(10, voidray)))
-                    # if we can attack:
-                    elif self.enemy_structures.closer_than(10, voidray):
-                        # attack!
-                        voidray.attack(random.choice(self.enemy_structures.closer_than(10, voidray)))
-                    # any enemy units:
-                    elif self.enemy_units:
-                        # attack!
-                        voidray.attack(random.choice(self.enemy_units))
-                    # any enemy structures:
-                    elif self.enemy_structures:
-                        # attack!
-                        voidray.attack(random.choice(self.enemy_structures))
-                    # if we can attack:
-                    elif self.enemy_start_locations:
-                        # attack!
-                        voidray.attack(self.enemy_start_locations[0])
-            
-            except Exception as e:
-                print(e)
-            
-
-        #5: voidray flee (back to base)
-        elif action == 5:
-            if self.units(UnitTypeId.VOIDRAY).amount > 0:
-                for vr in self.units(UnitTypeId.VOIDRAY):
-                    vr.attack(self.start_location)
-
-        # After main action, opportunistically build fighting units/buildings if resources allow (weighted)
-        # Example: 70% chance to try to build a voidray if possible
-        if random.random() < 0.7:
-            if self.can_afford(UnitTypeId.VOIDRAY) and self.structures(UnitTypeId.STARGATE).ready.idle.exists:
-                for sg in self.structures(UnitTypeId.STARGATE).ready.idle:
-                    sg.train(UnitTypeId.VOIDRAY)
-                    print("[Opportunistic] Trained a voidray (opportunistic)")
-                    break
-        # 40% chance to try to build a stargate if we have a cybernetics core and enough resources
-        if random.random() < 0.4:
-            if self.structures(UnitTypeId.CYBERNETICSCORE).ready.exists and self.can_afford(UnitTypeId.STARGATE) and self.already_pending(UnitTypeId.STARGATE) == 0:
-                await self.build(UnitTypeId.STARGATE, near=random.choice(self.townhalls))
-                print("[Opportunistic] Built a stargate (opportunistic)")
-        # 30% chance to try to build a gateway if we have a nexus and enough resources
-        if random.random() < 0.3:
-            if self.townhalls.exists and self.can_afford(UnitTypeId.GATEWAY) and self.already_pending(UnitTypeId.GATEWAY) == 0:
-                await self.build(UnitTypeId.GATEWAY, near=random.choice(self.townhalls))
-                print("[Opportunistic] Built a gateway (opportunistic)")
-
-
-        map = np.zeros((self.game_info.map_size[0], self.game_info.map_size[1], 3), dtype=np.uint8)
-
-        # draw the minerals:
-        for mineral in self.mineral_field:
-            pos = mineral.position
-            c = [175, 255, 255]
-            fraction = mineral.mineral_contents / 1800
-            if mineral.is_visible:
-                #print(mineral.mineral_contents)
-                map[math.ceil(pos.y)][math.ceil(pos.x)] = [int(fraction*i) for i in c]
+    def _attack(self) -> None:
+        for voidray in self.units(UnitTypeId.VOIDRAY).idle:
+            nearby_units = self.enemy_units.closer_than(10, voidray)
+            nearby_structures = self.enemy_structures.closer_than(10, voidray)
+            if nearby_units:
+                target = nearby_units.random
+            elif nearby_structures:
+                target = nearby_structures.random
+            elif self.enemy_units:
+                target = self.enemy_units.random
+            elif self.enemy_structures:
+                target = self.enemy_structures.random
+            elif self.enemy_start_locations:
+                target = self.enemy_start_locations[0]
             else:
-                map[math.ceil(pos.y)][math.ceil(pos.x)] = [20,75,50]  
+                continue
+            voidray.attack(target)
 
+    def _flee(self) -> None:
+        for voidray in self.units(UnitTypeId.VOIDRAY):
+            voidray.attack(self.start_location)
 
-        # draw the enemy start location:
-        for enemy_start_location in self.enemy_start_locations:
-            pos = enemy_start_location
-            c = [0, 0, 255]
-            map[math.ceil(pos.y)][math.ceil(pos.x)] = c
-
-        # draw the enemy units:
-        for enemy_unit in self.enemy_units:
-            pos = enemy_unit.position
-            c = [100, 0, 255]
-            # get unit health fraction:
-            fraction = enemy_unit.health / enemy_unit.health_max if enemy_unit.health_max > 0 else 0.0001
-            map[math.ceil(pos.y)][math.ceil(pos.x)] = [int(fraction*i) for i in c]
-
-
-        # draw the enemy structures:
-        for enemy_structure in self.enemy_structures:
-            pos = enemy_structure.position
-            c = [0, 100, 255]
-            # get structure health fraction:
-            fraction = enemy_structure.health / enemy_structure.health_max if enemy_structure.health_max > 0 else 0.0001
-            map[math.ceil(pos.y)][math.ceil(pos.x)] = [int(fraction*i) for i in c]
-
-        # draw our structures:
-        for our_structure in self.structures:
-            # if it's a nexus:
-            if our_structure.type_id == UnitTypeId.NEXUS:
-                pos = our_structure.position
-                c = [255, 255, 175]
-                # get structure health fraction:
-                fraction = our_structure.health / our_structure.health_max if our_structure.health_max > 0 else 0.0001
-                map[math.ceil(pos.y)][math.ceil(pos.x)] = [int(fraction*i) for i in c]
-            
-            else:
-                pos = our_structure.position
-                c = [0, 255, 175]
-                # get structure health fraction:
-                fraction = our_structure.health / our_structure.health_max if our_structure.health_max > 0 else 0.0001
-                map[math.ceil(pos.y)][math.ceil(pos.x)] = [int(fraction*i) for i in c]
-
-
-        # draw the vespene geysers:
-        for vespene in self.vespene_geyser:
-            # draw these after buildings, since assimilators go over them. 
-            # tried to denote some way that assimilator was on top, couldnt 
-            # come up with anything. Tried by positions, but the positions arent identical. ie:
-            # vesp position: (50.5, 63.5) 
-            # bldg positions: [(64.369873046875, 58.982421875), (52.85693359375, 51.593505859375),...]
-            pos = vespene.position
-            c = [255, 175, 255]
-            fraction = vespene.vespene_contents / 2250
-
-            if vespene.is_visible:
-                map[math.ceil(pos.y)][math.ceil(pos.x)] = [int(fraction*i) for i in c]
-            else:
-                map[math.ceil(pos.y)][math.ceil(pos.x)] = [50,20,75]
-
-        # draw our units:
-        for our_unit in self.units:
-            # if it is a voidray:
-            if our_unit.type_id == UnitTypeId.VOIDRAY:
-                pos = our_unit.position
-                c = [255, 75 , 75]
-                # get health:
-                fraction = our_unit.health / our_unit.health_max if our_unit.health_max > 0 else 0.0001
-                map[math.ceil(pos.y)][math.ceil(pos.x)] = [int(fraction*i) for i in c]
-
-
-            else:
-                pos = our_unit.position
-                c = [175, 255, 0]
-                # get health:
-                fraction = our_unit.health / our_unit.health_max if our_unit.health_max > 0 else 0.0001
-                map[math.ceil(pos.y)][math.ceil(pos.x)] = [int(fraction*i) for i in c]
-
-        # show map with opencv, resized to be larger:
-        # horizontal flip:
-
-        cv2.imshow('map',cv2.flip(cv2.resize(map, None, fx=4, fy=4, interpolation=cv2.INTER_NEAREST), 0))
-        cv2.waitKey(1)
-
-        if SAVE_REPLAY:
-            # save map image into "replays dir"
-            cv2.imwrite(f"replays/{int(time.time())}-{iteration}.png", map)
-
-
-
-        reward = 0
-
+    async def _perform_action(self, action: int, iteration: int) -> bool:
         try:
-            attack_count = 0
-            # iterate through our void rays:
-            for voidray in self.units(UnitTypeId.VOIDRAY):
-                # if voidray is attacking and is in range of enemy unit:
-                if voidray.is_attacking and voidray.target_in_range:
-                    if self.enemy_units.closer_than(8, voidray) or self.enemy_structures.closer_than(8, voidray):
-                        # reward += 0.005 # original was 0.005, decent results, but let's 3x it. 
-                        reward += 0.015  
-                        attack_count += 1
+            if action == 0:
+                await self._expand_or_mine()
+            elif action == 1:
+                await self._build_stargate()
+            elif action == 2:
+                self._build_voidrays()
+            elif action == 3:
+                return self._send_scout(iteration)
+            elif action == 4:
+                self._attack()
+            elif action == 5:
+                self._flee()
+            else:
+                return False
+            return True
+        except (IndexError, RuntimeError, ValueError) as exc:
+            print(f"[Action] {ACTION_NAMES.get(action, 'Unknown')} failed: {exc}")
+            return False
 
-        except Exception as e:
-            print("reward",e)
+    async def _perform_opportunistic_actions(self) -> None:
+        idle_stargates = self.structures(UnitTypeId.STARGATE).ready.idle
+        if (
+            random.random() < 0.7
+            and self.can_afford(UnitTypeId.VOIDRAY)
+            and idle_stargates.exists
+        ):
+            idle_stargates.random.train(UnitTypeId.VOIDRAY)
+            print("[Opportunistic] Trained a voidray")
+
+        if (
+            random.random() < 0.4
+            and self.structures(UnitTypeId.CYBERNETICSCORE).ready.exists
+            and self.can_afford(UnitTypeId.STARGATE)
+            and self.already_pending(UnitTypeId.STARGATE) == 0
+        ):
+            await self.build(UnitTypeId.STARGATE, near=self.townhalls.random)
+            print("[Opportunistic] Built a stargate")
+
+        if (
+            random.random() < 0.3
+            and self.townhalls.exists
+            and self.can_afford(UnitTypeId.GATEWAY)
+            and self.already_pending(UnitTypeId.GATEWAY) == 0
+        ):
+            await self.build(UnitTypeId.GATEWAY, near=self.townhalls.random)
+            print("[Opportunistic] Built a gateway")
+
+    @staticmethod
+    def _draw_health(
+        observation: np.ndarray, unit: Any, color: tuple[int, int, int]
+    ) -> None:
+        position = unit.position
+        fraction = unit.health / unit.health_max if unit.health_max > 0 else 0.0001
+        observation[math.ceil(position.y)][math.ceil(position.x)] = [
+            int(fraction * channel) for channel in color
+        ]
+
+    def _render_observation(self) -> np.ndarray:
+        width, height = self.game_info.map_size
+        observation = np.zeros((height, width, 3), dtype=np.uint8)
+
+        for mineral in self.mineral_field:
+            position = mineral.position
+            color = (175, 255, 255)
+            if mineral.is_visible:
+                fraction = mineral.mineral_contents / 1800
+                pixel = [int(fraction * channel) for channel in color]
+            else:
+                pixel = [20, 75, 50]
+            observation[math.ceil(position.y)][math.ceil(position.x)] = pixel
+
+        for location in self.enemy_start_locations:
+            observation[math.ceil(location.y)][math.ceil(location.x)] = [0, 0, 255]
+        for unit in self.enemy_units:
+            self._draw_health(observation, unit, (100, 0, 255))
+        for structure in self.enemy_structures:
+            self._draw_health(observation, structure, (0, 100, 255))
+        for structure in self.structures:
+            color = (
+                (255, 255, 175)
+                if structure.type_id == UnitTypeId.NEXUS
+                else (0, 255, 175)
+            )
+            self._draw_health(observation, structure, color)
+
+        for geyser in self.vespene_geyser:
+            position = geyser.position
+            if geyser.is_visible:
+                fraction = geyser.vespene_contents / 2250
+                pixel = [int(fraction * channel) for channel in (255, 175, 255)]
+            else:
+                pixel = [50, 20, 75]
+            observation[math.ceil(position.y)][math.ceil(position.x)] = pixel
+
+        for unit in self.units:
+            color = (
+                (255, 75, 75) if unit.type_id == UnitTypeId.VOIDRAY else (175, 255, 0)
+            )
+            self._draw_health(observation, unit, color)
+
+        if os.environ.get("SC2_HEADLESS") != "1":
+            cv2.imshow(
+                "map",
+                cv2.flip(
+                    cv2.resize(
+                        observation,
+                        None,
+                        fx=4,
+                        fy=4,
+                        interpolation=cv2.INTER_NEAREST,
+                    ),
+                    0,
+                ),
+            )
+            cv2.waitKey(1)
+        return observation
+
+    def _combat_reward(self) -> float:
+        try:
+            return sum(
+                0.015
+                for voidray in self.units(UnitTypeId.VOIDRAY)
+                if voidray.is_attacking
+                and voidray.target_in_range
+                and (
+                    self.enemy_units.closer_than(8, voidray)
+                    or self.enemy_structures.closer_than(8, voidray)
+                )
+            )
+        except (AttributeError, RuntimeError, TypeError) as exc:
+            print(f"reward {exc}")
+            return 0
+
+    def _reward_new_voidrays(self) -> float:
+        current_count = self.units(UnitTypeId.VOIDRAY).amount
+        previous_count = getattr(self, "prev_voidray_count", 0)
+        if current_count > previous_count:
+            reward = 80 * (current_count - previous_count)
+            self.episode_reward += reward
+            print(
+                f"[Reward] Trained {current_count - previous_count} new voidray(s): "
+                f"+{reward} reward (total: {self.episode_reward})"
+            )
+        else:
             reward = 0
+        self.prev_voidray_count = current_count
+        return reward
 
-        
+    def _reward_command(
+        self, action: int, iteration: int, action_performed: bool
+    ) -> float:
+        command_rewards = {
+            3: ("prev_scout_sent", 30, "Scout reward"),
+            4: ("prev_attack_issued", 50, "Attack command reward"),
+        }
+        if not action_performed or action not in command_rewards:
+            return 0
+        attribute, reward, description = command_rewards[action]
+        if iteration == getattr(self, attribute, 0):
+            return 0
+        self.episode_reward += reward
+        print(
+            f"[Reward] {description}: +{reward} reward (total: {self.episode_reward})"
+        )
+        setattr(self, attribute, iteration)
+        return reward
+
+    def _inaction_penalty(self, action: int, iteration: int) -> float:
+        last_action = getattr(self, "last_non_mining_action", iteration)
+        if action != 0:
+            self.last_non_mining_action = iteration
+            return 0
+        if iteration - last_action <= 300:
+            self.last_non_mining_action = last_action
+            return 0
+        penalty = -40
+        self.episode_reward += penalty
+        print(f"[Penalty] Inaction too long: {penalty} (total: {self.episode_reward})")
+        self.last_non_mining_action = iteration
+        return penalty
+
+    async def on_step(self, iteration: int) -> None:
+        if not getattr(self, "mineral_field", None):
+            return
+
+        self._step_reward = 0
+        action, request_id = await self._wait_for_action()
+        await self.distribute_workers()
+        action_performed = await self._perform_action(action, iteration)
+        await self._perform_opportunistic_actions()
+
+        observation = self._render_observation()
+        if SAVE_REPLAY:
+            cv2.imwrite(f"replays/{int(time.time())}-{iteration}.png", observation)
+
+        reward = (
+            self._combat_reward()
+            + self._step_reward
+            + self._reward_new_voidrays()
+            + self._reward_command(action, iteration, action_performed)
+            + self._inaction_penalty(action, iteration)
+        )
         if iteration % 100 == 0:
-            print(f"Iter: {iteration}. RWD: {reward}. VR: {self.units(UnitTypeId.VOIDRAY).amount}")
+            count = self.units(UnitTypeId.VOIDRAY).amount
+            print(f"Iter: {iteration}. RWD: {reward}. VR: {count}")
 
-        # write the file: 
-        data = {"state": map, "reward": reward, "action": None, "done": False}  # empty action waiting for the next one!
-
-        with open(PKL_PATH, 'wb') as f:
-            pickle.dump(data, f)
-
-        reward_given = False
-        # Voidray reward: reward for each new voidray trained
-        current_voidray_count = self.units(UnitTypeId.VOIDRAY).amount
-        if not hasattr(self, 'prev_voidray_count'):
-            self.prev_voidray_count = 0
-        if current_voidray_count > self.prev_voidray_count:
-            reward = 80 * (current_voidray_count - self.prev_voidray_count)
-            self.episode_reward += reward
-            print(f"[Reward] Trained {current_voidray_count - self.prev_voidray_count} new voidray(s): +{reward} reward (total: {self.episode_reward})")
-            try:
-                with open(PKL_PATH, 'rb') as f:
-                    data = pickle.load(f)
-                data['reward'] += reward
-                with open(PKL_PATH, 'wb') as f:
-                    pickle.dump(data, f)
-                print(f"[Reward] Voidray reward propagated to PKL: {reward}")
-            except Exception as e:
-                print(f"[Reward] Error updating voidray reward in state file: {e}")
-            reward_given = True
-        self.prev_voidray_count = current_voidray_count
-
-        # Attack command reward: reward for issuing attack commands
-        if not hasattr(self, 'prev_attack_issued'):
-            self.prev_attack_issued = 0
-        if action == 4 and (iteration != self.prev_attack_issued):
-            reward = 50
-            self.episode_reward += reward
-            print(f"[Reward] Issued attack command: +{reward} reward (total: {self.episode_reward})")
-            try:
-                with open(PKL_PATH, 'rb') as f:
-                    data = pickle.load(f)
-                data['reward'] += reward
-                with open(PKL_PATH, 'wb') as f:
-                    pickle.dump(data, f)
-                print(f"[Reward] Attack command reward propagated to PKL: {reward}")
-            except Exception as e:
-                print(f"[Reward] Error updating attack reward in state file: {e}")
-            self.prev_attack_issued = iteration
-            reward_given = True
-
-        # Scout reward: reward for sending a scout
-        if not hasattr(self, 'prev_scout_sent'):
-            self.prev_scout_sent = 0
-        if action == 3 and (iteration != self.prev_scout_sent):
-            reward = 30
-            self.episode_reward += reward
-            print(f"[Reward] Sent scout: +{reward} reward (total: {self.episode_reward})")
-            try:
-                with open(PKL_PATH, 'rb') as f:
-                    data = pickle.load(f)
-                data['reward'] += reward
-                with open(PKL_PATH, 'wb') as f:
-                    pickle.dump(data, f)
-                print(f"[Reward] Scout reward propagated to PKL: {reward}")
-            except Exception as e:
-                print(f"[Reward] Error updating scout reward in state file: {e}")
-            self.prev_scout_sent = iteration
-            reward_given = True
-
-        # Penalty for inaction/mining: if only mining for too long, penalize
-        if not hasattr(self, 'last_non_mining_action'):
-            self.last_non_mining_action = iteration
-        if action not in [0]:  # 0 is expand/mine
-            self.last_non_mining_action = iteration
-        if (iteration - self.last_non_mining_action) > 300:
-            penalty = -40
-            self.episode_reward += penalty
-            print(f"[Penalty] Inaction/mining too long: {penalty} penalty (total: {self.episode_reward})")
-            try:
-                with open(PKL_PATH, 'rb') as f:
-                    data = pickle.load(f)
-                data['reward'] += penalty
-                with open(PKL_PATH, 'wb') as f:
-                    pickle.dump(data, f)
-                print(f"[Penalty] Inaction penalty propagated to PKL: {penalty}")
-            except Exception as e:
-                print(f"[Penalty] Error updating inaction penalty in state file: {e}")
-            self.last_non_mining_action = iteration
-            reward_given = True
-
-        
+        normalized_observation = cv2.resize(
+            observation, (224, 224), interpolation=cv2.INTER_AREA
+        )
+        await asyncio.to_thread(
+            save_state,
+            {
+                "state": normalized_observation,
+                "reward": reward,
+                "action": None,
+                "done": False,
+                "episode_id": self._episode_id,
+                "request_id": request_id,
+                "ready": True,
+            },
+            RESPONSE_PATH,
+        )
 
 
-run_game(
-    # Always include a Computer opponent for RL training; otherwise, the game ends instantly and the RL loop hangs.
-    maps.get("AbyssalReefLE"),
-    [Bot(Race.Protoss, IncrediBot()), Computer(Race.Zerg, Difficulty.Easy)],
-    realtime=REALTIME,
-)
+if __name__ == "__main__":
+    run_game(
+        maps.get("AbyssalReefLE"),
+        [Bot(Race.Protoss, IncrediBot()), Computer(Race.Zerg, Difficulty.Easy)],
+        realtime=REALTIME,
+    )

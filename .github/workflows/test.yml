@@ -1,0 +1,41 @@
+name: Headless tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.9"
+          - "3.11"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install locked dependencies
+        run: |
+          python -m pip install uv==0.12.5
+          uv sync --locked --extra dev --python "${{ matrix.python-version }}"
+
+      - name: Run focused headless tests
+        run: >-
+          uv run --python "${{ matrix.python-version }}" pytest -q
+          tests/test_ipc.py tests/test_sc2env.py tests/test_incredibot.py

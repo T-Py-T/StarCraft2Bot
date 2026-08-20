@@ -5,15 +5,12 @@ macOS Map Setup Script for StarCraft2Bot
 This script helps set up StarCraft II maps on macOS.
 Since StarCraft II is not natively available on macOS, this script:
 1. Creates a Maps directory
-2. Downloads basic maps for testing
+2. Reports genuine map archives already present
 3. Provides instructions for Wine/CrossOver setup
 """
 
-import os
-import sys
-import urllib.request
-import zipfile
 from pathlib import Path
+
 
 def create_maps_directory():
     """Create the Maps directory in the project root"""
@@ -23,43 +20,21 @@ def create_maps_directory():
     print(f"✓ Created Maps directory: {maps_dir}")
     return maps_dir
 
-def download_simple_maps(maps_dir):
-    """Download simple test maps for basic functionality"""
-    print("Downloading simple test maps...")
-    
-    # Create a simple test map (Simple64 equivalent)
-    simple_map_content = """<?xml version="1.0" encoding="utf-8"?>
-<Map>
-  <Name>Simple64</Name>
-  <Description>Simple 64x64 test map for macOS</Description>
-  <Size>64,64</Size>
-  <Players>2</Players>
-</Map>"""
-    
-    simple_map_path = maps_dir / "Simple64.SC2Map"
-    with open(simple_map_path, 'w') as f:
-        f.write(simple_map_content)
-    print(f"✓ Created Simple64.SC2Map")
-    
-    # Create additional simple maps
-    for size in [32, 48, 96, 128]:
-        map_content = f"""<?xml version="1.0" encoding="utf-8"?>
-<Map>
-  <Name>Simple{size}</Name>
-  <Description>Simple {size}x{size} test map for macOS</Description>
-  <Size>{size},{size}</Size>
-  <Players>2</Players>
-</Map>"""
-        map_path = maps_dir / f"Simple{size}.SC2Map"
-        with open(map_path, 'w') as f:
-            f.write(map_content)
-        print(f"✓ Created Simple{size}.SC2Map")
+
+def report_available_maps(maps_dir):
+    """Report genuine SC2 map archives already available to the project."""
+    maps = sorted(maps_dir.glob("*.SC2Map"))
+    if maps:
+        print(f"✓ Found {len(maps)} StarCraft II map archive(s)")
+    else:
+        print("No .SC2Map archives found; copy maps exported by the SC2 Editor here.")
+
 
 def print_setup_instructions():
     """Print instructions for setting up StarCraft II on macOS"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("STARCRAFT II SETUP INSTRUCTIONS FOR MACOS")
-    print("="*60)
+    print("=" * 60)
     print()
     print("StarCraft II is not natively available on macOS. You have several options:")
     print()
@@ -85,20 +60,22 @@ def print_setup_instructions():
     print("After setting up StarCraft II, update the paths in src/config.py")
     print("and run: uv run src/trainppo.py")
 
+
 def main():
     print("StarCraft2Bot macOS Map Setup")
     print("=" * 40)
-    
+
     # Create maps directory
     maps_dir = create_maps_directory()
-    
-    # Download simple maps
-    download_simple_maps(maps_dir)
-    
+
+    # A .SC2Map is an MPQ archive; plain XML placeholders are not launchable maps.
+    report_available_maps(maps_dir)
+
     # Print setup instructions
     print_setup_instructions()
-    
+
     print(f"\n✓ Map setup complete! Maps are in: {maps_dir}")
+
 
 if __name__ == "__main__":
     main()

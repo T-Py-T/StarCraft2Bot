@@ -88,3 +88,6 @@ wandb/
 
 # Tensorflow logs
 logs/
+
+# Local bot/environment IPC and result files
+src/.runtime/

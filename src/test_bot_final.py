@@ -21,29 +21,33 @@ from sc2 import run_game, maps, Race, Difficulty
 from sc2.player import Bot, Computer
 from sc2.bot_ai import BotAI
 
+
 class WorkerRushBot(BotAI):
     async def on_step(self, iteration):
         if iteration == 0:
             for worker in self.workers:
                 worker.attack(self.enemy_start_locations[0])
 
+
 def main():
     print("🍷 Final CrossOver Test - StarCraft2Bot")
     print("=" * 50)
-    
+
     # Check if launcher exists
     if not os.path.exists("/tmp/sc2_crossover_launcher_v2.sh"):
-        print("❌ CrossOver launcher not found! Run sc2_crossover_launcher_v2.py first.")
+        print(
+            "❌ CrossOver launcher not found! Run sc2_crossover_launcher_v2.py first."
+        )
         return False
-    
+
     print("✅ CrossOver launcher found")
     print(f"SC2PATH: {os.environ['SC2PATH']}")
     print(f"SC2EXE: {os.environ['SC2EXE']}")
-    
+
     try:
         print("\n🚀 Starting StarCraft II game through CrossOver...")
         print("This may take a moment to start...")
-        
+
         # Run the game with a simple map
         run_game(
             maps.get("Simple64"),
@@ -56,7 +60,7 @@ def main():
     except Exception as e:
         print(f"❌ Error running game: {e}")
         print(f"Error type: {type(e).__name__}")
-        
+
         # Check if it's a websocket error
         if "Websocket" in str(e) or "websocket" in str(e).lower():
             print("\n🔧 This appears to be a websocket communication issue.")
@@ -67,8 +71,9 @@ def main():
             print("StarCraft II might not be starting properly.")
         else:
             print(f"\n🔧 Unexpected error: {e}")
-        
+
         return False
+
 
 if __name__ == "__main__":
     success = main()

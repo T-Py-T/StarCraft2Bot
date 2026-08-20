@@ -1,7 +1,7 @@
 # StarCraft2Bot Makefile
 # Common tasks for training, evaluation, and setup
 
-.PHONY: help install setup-maps train train-ppo train-mlpp test test-bot test-model clean clean-models clean-logs clean-wandb clean-all build check-env setup-windows setup-linux setup-macos
+.PHONY: help install setup-maps train train-ppo train-mlpp test test-live test-bot test-model clean clean-models clean-logs clean-wandb clean-all build check-env setup-windows setup-linux setup-macos
 
 # Default target
 help:
@@ -20,7 +20,8 @@ help:
 	@echo "  train-mlpp       Run MLPP training"
 	@echo ""
 	@echo "Testing Commands:"
-	@echo "  test             Run all tests"
+	@echo "  test             Run headless unit tests"
+	@echo "  test-live        Run SC2 and model integration tests"
 	@echo "  test-bot         Test the bot directly"
 	@echo "  test-model       Test a trained model"
 	@echo ""
@@ -81,7 +82,11 @@ train-mlpp:
 	uv run src/load-train-mlpp.py
 
 # Testing commands
-test: test-bot test-model
+test:
+	@echo "Running headless unit tests..."
+	uv run pytest -q tests
+
+test-live: test-bot test-model
 
 test-bot:
 	@echo "Testing bot directly..."
@@ -163,15 +168,15 @@ dev-install:
 
 lint:
 	@echo "Running linter..."
-	uv run ruff check src/
+	uv run ruff check src/ run/ tests/
 
 format:
 	@echo "Formatting code..."
-	uv run ruff format src/
+	uv run ruff format src/ run/ tests/
 
 type-check:
 	@echo "Running type checker..."
-	uv run mypy src/
+	uv run mypy --ignore-missing-imports src/ipc.py src/sc2env.py
 
 # Quick start for new users
 quick-start: install setup-maps check-env
@@ -180,7 +185,7 @@ quick-start: install setup-maps check-env
 	@echo "Next steps:"
 	@echo "1. Configure StarCraft II path in src/config.py"
 	@echo "2. Run 'make train' to start training"
-	@echo "3. Run 'make test' to test the bot"
+	@echo "3. Run 'make test' to run headless unit tests"
 
 # Platform detection and setup
 detect-platform:

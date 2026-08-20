@@ -57,6 +57,20 @@ I built this StarCraft II bot to explore deep reinforcement learning in complex 
    make test-model
    ```
 
+For development, install the locked development tools and run the headless
+checks without launching StarCraft II:
+
+```sh
+uv sync --locked --extra dev
+make test
+make lint
+make type-check
+```
+
+Pull requests and `main` run the focused IPC, environment, and bot tests on
+Python 3.9 and 3.11. These checks validate the process protocol only; they do
+not launch StarCraft II or establish live-game behavior.
+
 ## Platform Setup
 
 ### Windows (Recommended)
@@ -126,6 +140,15 @@ make clean-logs
 - **Training Parameters**: Adjust PPO hyperparameters and training duration
 - **Reward Engineering**: Modify reward weights for different strategic objectives
 
+### Environment communication
+
+The Gym environment and bot exchange a fixed-shape observation, action, reward,
+and completion flag through separate, single-writer request and response NumPy
+archives in `src/.runtime/`. Atomic publication uses a unique temporary file for
+each write, the archive loader disables object payloads, and episode/request IDs
+reject stale messages. Runtime state/results are ignored by Git. Set
+`SC2_RUNTIME_DIR` when separate training jobs need isolated state paths.
+
 ## Game Maps
 
 ### Map Setup
@@ -144,6 +167,7 @@ src/
 ├── sc2env.py           # Custom Gymnasium RL environment
 ├── trainppo.py         # PPO training pipeline with Wandb integration
 ├── incredibot-sct.py   # StarCraft II bot AI implementation
+├── ipc.py              # Safe atomic environment/bot state exchange
 ├── test_model.py       # Model evaluation and testing
 └── config.py           # Configuration and hyperparameters
 ```
@@ -154,18 +178,16 @@ src/
 - **Experiment Tracking**: Wandb integration for reproducible training runs
 - **Configurable**: Easy hyperparameter tuning and training duration adjustment
 
-## Current Status & Results
+## Validation Status
 
-### Training Performance
-- **Episodes**: Configurable training duration (default: 10,000 timesteps per episode)
-- **Reward System**: Multi-objective rewards balancing economy, military production, and tactics
-- **Convergence**: PPO with MLP policies shows stable learning curves
+The locked headless test suite verifies atomic request/response publication,
+episode and request correlation, fixed `224x224x3` observations, stale-message
+handling, terminal-response precedence, and the initial ready handshake through
+BurnySC2's awaited `on_start_async` lifecycle hook.
 
-### What the Bot Learned
-- **Economic Management**: Automated worker distribution and resource optimization
-- **Military Production**: Dynamic Void Ray production and tactical deployment
-- **Scouting**: Strategic reconnaissance and enemy base detection
-- **Combat**: Unit positioning and engagement timing
+Live StarCraft II training and gameplay have not been validated in this change.
+A licensed StarCraft II installation is still required to evaluate learning,
+convergence, win rate, strategy quality, and end-to-end runtime behavior.
 
 ## Next Steps
 
