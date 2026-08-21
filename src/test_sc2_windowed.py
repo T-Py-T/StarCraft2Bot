@@ -15,13 +15,28 @@ def test_sc2_windowed():
     print("🎮 Testing StarCraft II in windowed mode...")
 
     env = os.environ.copy()
-    env["WINEPREFIX"] = (
-        "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II"
+    env["WINEPREFIX"] = os.path.expanduser(
+        os.environ.get(
+            "SC2_CROSSOVER_BOTTLE",
+            "~/Library/Application Support/CrossOver/Bottles/StarCraft II",
+        )
     )
     env["WINEDEBUG"] = "-all"
 
-    wine_exe = "/Users/taylor/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/CrossOver-Hosted Application/wine"
-    sc2_exe = "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
+    wine_exe = os.path.expanduser(
+        os.environ.get(
+            "SC2_WINE_EXECUTABLE",
+            "~/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/"
+            "CrossOver-Hosted Application/wine",
+        )
+    )
+    sc2_exe = os.path.expanduser(
+        os.environ.get(
+            "SC2_EXECUTABLE",
+            "~/Library/Application Support/CrossOver/Bottles/StarCraft II/"
+            "drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe",
+        )
+    )
 
     # Try windowed mode first
     args = [
@@ -32,7 +47,7 @@ def test_sc2_windowed():
         "--port",
         "5001",
         "--dataDir",
-        "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II",
+        os.path.dirname(sc2_exe),
         "--tempDir",
         "/tmp/sc2_temp",
         "--verbose",

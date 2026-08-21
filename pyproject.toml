@@ -1,8 +1,7 @@
 [project]
-name = "starcraft2bot"
+name = "starcraft2-ppo-agent"
 version = "0.1.0"
-description = "A StarCraft II bot and RL training environment."
-authors = [{name = "Your Name", email = "your@email.com"}]
+description = "PPO training environment and process-safe Protoss agent for StarCraft II"
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
 dependencies = [

@@ -15,10 +15,15 @@ def check_crossover_status():
     print("🔍 Checking CrossOver Status")
     print("=" * 30)
 
-    crossover_app = Path("/Users/taylor/Applications/CrossOver.app")
+    crossover_app = Path(
+        os.environ.get("CROSSOVER_APP_PATH", "~/Applications/CrossOver.app")
+    ).expanduser()
     sc2_bottle = Path(
-        "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II"
-    )
+        os.environ.get(
+            "SC2_CROSSOVER_BOTTLE",
+            "~/Library/Application Support/CrossOver/Bottles/StarCraft II",
+        )
+    ).expanduser()
     sc2_exe = sc2_bottle / "drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
     wine_exe = (
         crossover_app
@@ -45,7 +50,13 @@ def test_wine_basic():
     print("\n🍷 Testing Wine Basic Functionality")
     print("=" * 30)
 
-    wine_exe = "/Users/taylor/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/CrossOver-Hosted Application/wine"
+    wine_exe = os.path.expanduser(
+        os.environ.get(
+            "SC2_WINE_EXECUTABLE",
+            "~/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/"
+            "CrossOver-Hosted Application/wine",
+        )
+    )
 
     try:
         result = subprocess.run(
@@ -64,7 +75,13 @@ def test_sc2_installation():
     print("\n🎮 Testing StarCraft II Installation")
     print("=" * 30)
 
-    sc2_exe = "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
+    sc2_exe = os.path.expanduser(
+        os.environ.get(
+            "SC2_EXECUTABLE",
+            "~/Library/Application Support/CrossOver/Bottles/StarCraft II/"
+            "drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe",
+        )
+    )
 
     if not os.path.exists(sc2_exe):
         print("❌ StarCraft II executable not found")
@@ -84,13 +101,28 @@ def test_sc2_launch():
     print("=" * 30)
 
     env = os.environ.copy()
-    env["WINEPREFIX"] = (
-        "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II"
+    env["WINEPREFIX"] = os.path.expanduser(
+        os.environ.get(
+            "SC2_CROSSOVER_BOTTLE",
+            "~/Library/Application Support/CrossOver/Bottles/StarCraft II",
+        )
     )
     env["WINEDEBUG"] = "-all"
 
-    wine_exe = "/Users/taylor/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/CrossOver-Hosted Application/wine"
-    sc2_exe = "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
+    wine_exe = os.path.expanduser(
+        os.environ.get(
+            "SC2_WINE_EXECUTABLE",
+            "~/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/"
+            "CrossOver-Hosted Application/wine",
+        )
+    )
+    sc2_exe = os.path.expanduser(
+        os.environ.get(
+            "SC2_EXECUTABLE",
+            "~/Library/Application Support/CrossOver/Bottles/StarCraft II/"
+            "drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe",
+        )
+    )
 
     try:
         print("Attempting to launch StarCraft II...")

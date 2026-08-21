@@ -102,7 +102,7 @@ git commit -m "Auto sync: \$(date)"
 git push origin main
 
 echo "📥 Pulling changes in Windows VM and running bot..."
-ssh \$VM_HOST "cd StarCraft2Bot && git pull origin main && uv run src/test_bot.py"
+ssh \$VM_HOST "cd starcraft2-ppo-agent && git pull origin main && uv run src/test_bot.py"
 EOF
 
 chmod +x sync_and_run.sh

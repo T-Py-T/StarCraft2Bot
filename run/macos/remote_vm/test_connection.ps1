@@ -122,7 +122,7 @@ if (Test-Path "pyproject.toml") {
 } else {
     Write-Host "⚠️  Not in StarCraft2Bot project directory" -ForegroundColor Yellow
     Write-Host "Clone the repository first:" -ForegroundColor White
-    Write-Host "git clone https://github.com/yourusername/StarCraft2Bot.git" -ForegroundColor White
+    Write-Host "git clone https://github.com/T-Py-T/starcraft2-ppo-agent.git" -ForegroundColor White
 }
 
 # Test 7: Port connectivity test
