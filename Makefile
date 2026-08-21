@@ -1,11 +1,11 @@
-# StarCraft2Bot Makefile
+# StarCraft II PPO Agent Makefile
 # Common tasks for training, evaluation, and setup
 
 .PHONY: help install setup-maps train train-ppo train-mlpp test test-live test-bot test-model clean clean-models clean-logs clean-wandb clean-all build check-env setup-windows setup-linux setup-macos
 
 # Default target
 help:
-	@echo "StarCraft2Bot - Available Commands:"
+	@echo "StarCraft II PPO Agent - Available Commands:"
 	@echo ""
 	@echo "Setup Commands:"
 	@echo "  install          Install dependencies with uv"
@@ -105,7 +105,7 @@ setup-remote-dev:
 
 test-remote:
 	@echo "Testing bot in Windows VM..."
-	@ssh starcraft2-vm "cd StarCraft2Bot && uv run src/test_bot.py"
+	@ssh starcraft2-vm "cd starcraft2-ppo-agent && uv run src/test_bot.py"
 
 sync-and-run:
 	@echo "Syncing changes and running bot in Windows VM..."
@@ -200,7 +200,7 @@ detect-platform:
 
 # Show project status
 status:
-	@echo "StarCraft2Bot Project Status:"
+	@echo "StarCraft II PPO Agent Status:"
 	@echo "============================="
 	@echo "Platform: $$(uname)"
 	@echo "Python: $$(uv run python --version 2>/dev/null || echo 'Not available')"

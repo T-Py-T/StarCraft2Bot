@@ -22,5 +22,5 @@ This folder contains all files needed for Windows VM setup.
 
 📖 For detailed instructions, see README.md
 
-🔗 Repository: https://github.com/yourusername/StarCraft2Bot
+🔗 Repository: https://github.com/T-Py-T/starcraft2-ppo-agent
 📂 Location: run/macos/remote_vm/

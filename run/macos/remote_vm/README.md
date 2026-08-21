@@ -17,11 +17,11 @@ In your Windows VM, clone or download the repository:
 
 ```powershell
 # Option A: Clone the entire repository
-git clone https://github.com/yourusername/StarCraft2Bot.git
-cd StarCraft2Bot\run\macos\remote_vm
+git clone https://github.com/T-Py-T/starcraft2-ppo-agent.git
+cd starcraft2-ppo-agent\run\macos\remote_vm
 
 # Option B: Download just these files
-# Navigate to: https://github.com/yourusername/StarCraft2Bot/tree/main/run/macos/remote_vm
+# Navigate to: https://github.com/T-Py-T/starcraft2-ppo-agent/tree/main/run/macos/remote_vm
 # Download each file individually
 ```
 
@@ -30,7 +30,7 @@ cd StarCraft2Bot\run\macos\remote_vm
 **Option A: PowerShell (Recommended)**
 ```powershell
 # Right-click PowerShell and "Run as Administrator"
-cd path\to\StarCraft2Bot\run\macos\remote_vm
+cd path\to\starcraft2-ppo-agent\run\macos\remote_vm
 .\windows_ssh_setup.ps1
 ```
 
@@ -55,8 +55,8 @@ make setup-remote-dev
 
 ```powershell
 # In Windows VM (after SSH is working)
-git clone https://github.com/yourusername/StarCraft2Bot.git
-cd StarCraft2Bot
+git clone https://github.com/T-Py-T/starcraft2-ppo-agent.git
+cd starcraft2-ppo-agent
 ```
 
 ### Step 5: Setup Bot in Windows VM

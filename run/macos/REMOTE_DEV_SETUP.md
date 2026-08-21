@@ -131,8 +131,8 @@ uv --version
 cd C:\Users\username\
 
 # Clone the repository
-git clone https://github.com/yourusername/StarCraft2Bot.git
-cd StarCraft2Bot
+git clone https://github.com/T-Py-T/starcraft2-ppo-agent.git
+cd starcraft2-ppo-agent
 
 # Install dependencies
 uv sync
@@ -206,7 +206,7 @@ STARCRAFT_II_PATH_WINDOWS = r"C:\Program Files (x86)\StarCraft II\StarCraft II.e
 
 From macOS:
 ```bash
-ssh username@VM_IP_ADDRESS "cd StarCraft2Bot && uv run --version"
+ssh username@VM_IP_ADDRESS "cd starcraft2-ppo-agent && uv run --version"
 ```
 
 ### 10.2 Test Bot
@@ -259,7 +259,7 @@ git commit -m "Auto sync: $(date)"
 git push origin main
 
 # SSH into VM and pull changes
-ssh $VM_USER@$VM_IP "cd StarCraft2Bot && git pull origin main && uv run src/test_bot.py"
+ssh $VM_USER@$VM_IP "cd starcraft2-ppo-agent && git pull origin main && uv run src/test_bot.py"
 ```
 
 Make it executable:

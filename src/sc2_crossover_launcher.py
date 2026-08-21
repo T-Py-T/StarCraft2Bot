@@ -18,21 +18,21 @@ def create_sc2_launcher():
 # SC2 CrossOver Launcher
 # This script launches StarCraft II through CrossOver in headless mode
 
-export WINEPREFIX="/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II"
+export WINEPREFIX="${SC2_CROSSOVER_BOTTLE:-$HOME/Library/Application Support/CrossOver/Bottles/StarCraft II}"
 export WINEDEBUG=-all
 
 # StarCraft II executable
-SC2_EXE="/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
+SC2_EXE="${SC2_EXECUTABLE:-$WINEPREFIX/drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe}"
 
 # Wine executable
-WINE_EXE="/Users/taylor/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/CrossOver-Hosted Application/wine"
+WINE_EXE="${SC2_WINE_EXECUTABLE:-$HOME/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/CrossOver-Hosted Application/wine}"
 
 # Default arguments for headless mode
 DEFAULT_ARGS=(
     "--headless"
     "--listen" "127.0.0.1"
     "--port" "5000"
-    "--dataDir" "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II"
+    "--dataDir" "$WINEPREFIX/drive_c/Program Files (x86)/StarCraft II"
     "--tempDir" "/tmp/sc2_temp"
 )
 

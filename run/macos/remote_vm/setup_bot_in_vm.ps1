@@ -8,7 +8,7 @@ Write-Host "=" * 50
 if (-not (Test-Path "pyproject.toml")) {
     Write-Host "❌ Not in StarCraft2Bot directory!" -ForegroundColor Red
     Write-Host "Please navigate to the StarCraft2Bot directory first:" -ForegroundColor Yellow
-    Write-Host "cd StarCraft2Bot" -ForegroundColor White
+    Write-Host "cd starcraft2-ppo-agent" -ForegroundColor White
     exit 1
 }
 

@@ -13,11 +13,17 @@ STARCRAFT_II_PATH_LINUX = "/mnt/e/XboxGames/StarCraft II/StarCraft II.exe"
 
 # Default Linux path (for users who installed StarCraft II natively on Linux)
 # This is the default path that the sc2 library looks for on Linux
-STARCRAFT_II_PATH_LINUX_DEFAULT = "/home/taylor/StarCraftII/Versions"
+STARCRAFT_II_PATH_LINUX_DEFAULT = os.path.expanduser("~/StarCraftII/Versions")
 
 # macOS paths - StarCraft II is not natively available on macOS
 # Users typically run it through Wine, CrossOver, or virtualization
-STARCRAFT_II_PATH_MACOS_WINE = "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
+STARCRAFT_II_PATH_MACOS_WINE = os.environ.get(
+    "SC2_MACOS_WINE_EXE",
+    os.path.expanduser(
+        "~/Library/Application Support/CrossOver/Bottles/StarCraft II/"
+        "drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
+    ),
+)
 STARCRAFT_II_PATH_MACOS_CROSSOVER = "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/StarCraft II/StarCraft II.exe"
 STARCRAFT_II_PATH_MACOS_DEFAULT = (
     "/Applications/StarCraft II/StarCraft II.app/Contents/MacOS/StarCraft II"

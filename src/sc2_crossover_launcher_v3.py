@@ -48,15 +48,15 @@ def create_sc2_launcher_v3():
 # SC2 CrossOver Launcher v3 - Enhanced for websocket communication
 # This script launches StarCraft II through CrossOver with proper websocket support
 
-export WINEPREFIX="/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II"
+export WINEPREFIX="$HOME/Library/Application Support/CrossOver/Bottles/StarCraft II"
 export WINEDEBUG=-all
 export WINEDLLOVERRIDES="mscoree,mshtml="
 
 # StarCraft II executable
-SC2_EXE="/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
+SC2_EXE="$WINEPREFIX/drive_c/Program Files (x86)/StarCraft II/StarCraft II.exe"
 
 # Wine executable
-WINE_EXE="/Users/taylor/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/CrossOver-Hosted Application/wine"
+WINE_EXE="$HOME/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/CrossOver-Hosted Application/wine"
 
 # Create temp directory
 mkdir -p "/tmp/sc2_temp"
@@ -66,7 +66,7 @@ DEFAULT_ARGS=(
     "--headless"
     "--listen" "127.0.0.1"
     "--port" "{port}"
-    "--dataDir" "/Users/taylor/Library/Application Support/CrossOver/Bottles/StarCraft II/drive_c/Program Files (x86)/StarCraft II"
+    "--dataDir" "$WINEPREFIX/drive_c/Program Files (x86)/StarCraft II"
     "--tempDir" "/tmp/sc2_temp"
     "--verbose"
     "--logLevel" "1"
@@ -135,8 +135,8 @@ def setup_sc2_structure():
     os.makedirs(maps_path, exist_ok=True)
 
     # Copy maps
-    project_maps = (
-        "/Users/taylor/Library/CloudStorage/Dropbox/_GitHub/StarCraft2Bot/Maps"
+    project_maps = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Maps"
     )
     if os.path.exists(project_maps):
         for map_file in os.listdir(project_maps):
